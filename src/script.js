@@ -47,6 +47,14 @@ console.log("Create the renderer");
 const renderer = new THREE.WebGL1Renderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+renderer.domElement.style.width = '100%';
+renderer.domElement.style.height = '100%';
+renderer.domElement.style.position = 'absolute';
+renderer.domElement.style.top = '0';
+renderer.domElement.style.left = '0';
+renderer.domElement.style.display = 'block';
+renderer.domElement.style.backgroundColor = '#000';
+renderer.domElement.style.zIndex = '0';
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
 console.log("Create an orbit control");
@@ -126,10 +134,11 @@ function onDocumentMouseDown(event) {
 
   if (intersects.length > 0) {
     const clickedObject = intersects[0].object;
-    selectedPlanet = identifyPlanet(clickedObject);
-    if (selectedPlanet) {
+    const newPlanet = identifyPlanet(clickedObject);
+    if (newPlanet) {
       closeInfoNoZoomOut();
       
+      selectedPlanet = newPlanet; // Assign new planet AFTER closing old info
       accelerationOrbit = 0; // Stop orbital movement
 
       // Update camera to look at the selected planet
@@ -138,8 +147,16 @@ function onDocumentMouseDown(event) {
       controls.target.copy(planetPosition);
       camera.lookAt(planetPosition); // Orient the camera towards the planet
 
-      targetCameraPosition.copy(planetPosition).add(camera.position.clone().sub(planetPosition).normalize().multiplyScalar(offset));
+      // Calculate camera position considering the reduced canvas height
+      const direction = camera.position.clone().sub(planetPosition).normalize();
+      targetCameraPosition.copy(planetPosition).add(direction.multiplyScalar(offset));
+      
       isMovingTowardsPlanet = true;
+      
+      // Start all animations immediately and adjust camera during transition
+      animatePlanetScale(selectedPlanet.planet, 0.5, 500);
+      startPlanetInfoAnimation(selectedPlanet.name);
+      animateCameraAdjustment(500);
     }
   }
 }
@@ -178,8 +195,99 @@ function identifyPlanet(clickedObject) {
   return null;
 }
 
-// ******  SHOW PLANET INFO AFTER SELECTION  ******
-function showPlanetInfo(planet) {
+// ******  ANIMATE CANVAS HEIGHT  ******
+function animateCanvasHeight(targetHeightPercent, duration, callback) {
+  const startHeight = parseFloat(renderer.domElement.style.height.replace('%', '')) || 100;
+  const endHeight = targetHeightPercent;
+  const startTime = performance.now();
+
+  function animate(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeProgress = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+    const currentHeight = startHeight + (endHeight - startHeight) * easeProgress;
+    const currentPixelHeight = Math.round(window.innerHeight * currentHeight / 100);
+    
+    renderer.domElement.style.height = currentPixelHeight + 'px';
+    renderer.setSize(window.innerWidth, currentPixelHeight, true);
+    composer.setSize(window.innerWidth, currentPixelHeight);
+    camera.aspect = window.innerWidth / currentPixelHeight;
+    camera.updateProjectionMatrix();
+    composer.render();
+    
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      if (callback) callback();
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+// ******  ANIMATE PLANET SCALE  ******
+function animatePlanetScale(planet, targetScale, duration) {
+  const startScale = planet.scale.x;
+  const endScale = targetScale;
+  const startTime = performance.now();
+
+  function animate(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const currentScale = startScale + (endScale - startScale) * progress;
+    planet.scale.set(currentScale, currentScale, currentScale);
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+// ******  ANIMATE CAMERA ADJUSTMENT FOR CANVAS RESIZE  ******
+let originalFov = 45;
+function animateCameraAdjustment(duration) {
+  const startTime = performance.now();
+  originalFov = camera.fov;
+  const targetFov = originalFov * 0.75; // Reduce FOV to compensate for height reduction
+
+  function animate(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeProgress = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+    const currentFov = originalFov + (targetFov - originalFov) * easeProgress;
+    
+    camera.fov = currentFov;
+    camera.updateProjectionMatrix();
+    
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+function animateCameraAdjustmentReverse(duration) {
+  const startTime = performance.now();
+  const startFov = camera.fov;
+  const targetFov = originalFov;
+
+  function animate(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeProgress = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+    const currentFov = startFov + (targetFov - startFov) * easeProgress;
+    
+    camera.fov = currentFov;
+    camera.updateProjectionMatrix();
+    
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+// ******  START PLANET INFO ANIMATION  ******
+function startPlanetInfoAnimation(planet) {
   var info = document.getElementById('planetInfo');
   var name = document.getElementById('planetName');
   var details = document.getElementById('planetDetails');
@@ -188,32 +296,42 @@ function showPlanetInfo(planet) {
   details.innerText = `Radius: ${planetData[planet].radius}\nTilt: ${planetData[planet].tilt}\nRotation: ${planetData[planet].rotation}\nOrbit: ${planetData[planet].orbit}\nDistance: ${planetData[planet].distance}\nMoons: ${planetData[planet].moons}\nInfo: ${planetData[planet].info}`;
 
   info.style.display = 'block';
+  info.style.transform = 'translateY(0)';
   isInfoShown = true;
-  renderer.setSize(window.innerWidth, window.innerHeight / 2);
-  composer.setSize(window.innerWidth, window.innerHeight / 2);
-  camera.aspect = window.innerWidth / (window.innerHeight / 2);
-  camera.updateProjectionMatrix();
+  animateCanvasHeight(50, 500, () => {
+    // after animation
+  });
 }
 let isZoomingOut = false;
 let zoomOutTargetPosition = new THREE.Vector3(-175, 115, 5);
 // close 'x' button function
 function closeInfo() {
   var info = document.getElementById('planetInfo');
-  info.style.display = 'none';
+  info.style.transform = 'translateY(100%)';
   accelerationOrbit = 1;
   isInfoShown = false;
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
+  animateCanvasHeight(100, 500, () => {
+    // after animation
+  });
+  if (selectedPlanet) {
+    animatePlanetScale(selectedPlanet.planet, 1, 500);
+  }
+  animateCameraAdjustmentReverse(500);
   isZoomingOut = true;
   controls.target.set(0, 0, 0);
+  setTimeout(() => {
+    info.style.display = 'none';
+  }, 500);
 }
 window.closeInfo = closeInfo;
 // close info when clicking another planet
 function closeInfoNoZoomOut() {
   var info = document.getElementById('planetInfo');
   info.style.display = 'none';
+  info.style.transform = 'translateY(100%)';
+  if (selectedPlanet) {
+    selectedPlanet.planet.scale.set(1, 1, 1);
+  }
   accelerationOrbit = 1;
 }
 // ******  SUN  ******
@@ -758,8 +876,6 @@ if (isMovingTowardsPlanet) {
   // Check if the camera is close to the target position
   if (camera.position.distanceTo(targetCameraPosition) < 1) {
       isMovingTowardsPlanet = false;
-      showPlanetInfo(selectedPlanet.name);
-
   }
 } else if (isZoomingOut) {
   camera.position.lerp(zoomOutTargetPosition, 0.05);
@@ -781,10 +897,12 @@ window.addEventListener('mousemove', onMouseMove, false);
 window.addEventListener('mousedown', onDocumentMouseDown, false);
 window.addEventListener('resize', function(){
   if (isInfoShown) {
+    renderer.domElement.style.height = '50%';
     renderer.setSize(window.innerWidth, window.innerHeight / 2);
     composer.setSize(window.innerWidth, window.innerHeight / 2);
     camera.aspect = window.innerWidth / (window.innerHeight / 2);
   } else {
+    renderer.domElement.style.height = '100%';
     renderer.setSize(window.innerWidth, window.innerHeight);
     composer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
