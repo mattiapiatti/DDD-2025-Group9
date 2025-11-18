@@ -97,6 +97,7 @@ scene.background = cubeTextureLoader.load([
 let accelerationOrbit = 1;
 let acceleration = 1;
 const sunIntensity = 1.9;
+let isInfoShown = false;
 
 // mouse movement
 const raycaster = new THREE.Raycaster();
@@ -187,6 +188,11 @@ function showPlanetInfo(planet) {
   details.innerText = `Radius: ${planetData[planet].radius}\nTilt: ${planetData[planet].tilt}\nRotation: ${planetData[planet].rotation}\nOrbit: ${planetData[planet].orbit}\nDistance: ${planetData[planet].distance}\nMoons: ${planetData[planet].moons}\nInfo: ${planetData[planet].info}`;
 
   info.style.display = 'block';
+  isInfoShown = true;
+  renderer.setSize(window.innerWidth, window.innerHeight / 2);
+  composer.setSize(window.innerWidth, window.innerHeight / 2);
+  camera.aspect = window.innerWidth / (window.innerHeight / 2);
+  camera.updateProjectionMatrix();
 }
 let isZoomingOut = false;
 let zoomOutTargetPosition = new THREE.Vector3(-175, 115, 5);
@@ -195,6 +201,11 @@ function closeInfo() {
   var info = document.getElementById('planetInfo');
   info.style.display = 'none';
   accelerationOrbit = 1;
+  isInfoShown = false;
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
   isZoomingOut = true;
   controls.target.set(0, 0, 0);
 }
@@ -769,8 +780,14 @@ animate();
 window.addEventListener('mousemove', onMouseMove, false);
 window.addEventListener('mousedown', onDocumentMouseDown, false);
 window.addEventListener('resize', function(){
-  camera.aspect = window.innerWidth/window.innerHeight;
+  if (isInfoShown) {
+    renderer.setSize(window.innerWidth, window.innerHeight / 2);
+    composer.setSize(window.innerWidth, window.innerHeight / 2);
+    camera.aspect = window.innerWidth / (window.innerHeight / 2);
+  } else {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    composer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+  }
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth,window.innerHeight);
-  composer.setSize(window.innerWidth,window.innerHeight);
 });
