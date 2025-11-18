@@ -1,92 +1,130 @@
-# 3D Solar System in THREE.js
+# Solar System 3D
 
-Welcome to the **3D Solar System** project, a dynamic and interactive simulation of our solar system created using THREE.js and the Vite framework. This project showcases various advanced features and effects to provide an immersive experience of the celestial bodies in our solar system. The project is fully created by Karol Fryc.
+An interactive 3D visualization of our solar system created with Three.js, allowing you to explore planets, their moons, and asteroids in real-time.
 
-Overview available at: https://w21030911.nuwebspace.co.uk/graphics/assessment/
-
-![Solar_System](images/solar_system.png)
-
-![Earth](images/earthnew.png)
-
-![Mercury](images/mercury.png)
-
-![Mars](images/mars.png)
+![Solar System 3D](https://via.placeholder.com/800x400/000011/ffffff?text=Solar+System+3D)
 
 ## Features
 
-### Standard Setup
-- **Scene, Camera, Renderer**: Basic setup for rendering 3D scenes using THREE.js.
-- **Controls**: Interactive controls for navigating the 3D space.
-- **Texture Loaders**: Efficient loading of textures for planets, moons, and other objects.
+- **Interactive 3D Visualization**: Explore the solar system with smooth orbital controls
+- **Realistic Planets**: All 9 planets with accurate textures and relative sizes
+- **Moon System**: Realistic orbits for moons of Earth, Mars, Jupiter, and other planets
+- **Advanced Visual Effects**:
+  - Bloom pass for realistic lighting
+  - Outline pass to highlight selected planets
+  - Starry background with cubemap
+  - Transparent planetary atmospheres
+- **Interactivity**:
+  - Click planets to zoom and view detailed information
+  - Informational popup with astronomical data
+  - Mouse controls for 3D navigation
+- **Optimizations**: Efficient rendering with WebGL and post-processing
 
-### Postprocessing Effects
-- **BloomPass**: Adds a glowing effect to the Sun.
-- **OutlinePass**: Highlights planets with a white outline when hovered over.
-- **EffectComposer**: Manages and combines all postprocessing effects for rendering.
+## Technologies Used
 
-### Star Background
-- A realistic starry sky that provides a beautiful backdrop for the solar system.
+- **Three.js** - 3D framework for WebGL
+- **Vite** - Build tool and dev server
+- **Postprocessing** - Advanced visual effects
+- **JavaScript ES6+** - Programming language
+- **HTML5/CSS3** - Structure and styling
 
-### Interactive Controls
-- **dat.GUI**: Allows users to adjust parameters such as orbit speed and the intensity of the Sun's glow.
+## Installation
 
-### Lighting
-- **AmbientLight**: Provides soft lighting throughout the scene.
-- **PointLight**: Positioned at the center of the Sun to cast realistic shadows.
+### Prerequisites
 
-### Detailed Planet Creation
-- **Attributes**: Size, position, tilt, texture, bump material, rings, and atmospheres.
-- **Moons**: Includes moons with realistic textures and orbits.
-- **Special Materials**: Earth’s ShaderMaterial for day/night transitions and moving clouds.
-- **Non-Spherical Moons**: Phobos and Deimos are modeled from 3D objects for realism.
+- Node.js (version 16 or higher)
+- npm or yarn
 
-### Realistic Orbits and Rotations
-- Planets and moons orbit the Sun and rotate on their axes with scaled distances and speeds.
-- Scaled sizes for better visual representation: Mercury, Venus, Earth, Mars, and Pluto are at actual scale, while larger planets are scaled down for balance.
+### Setup
 
-### Shadows
-- Realistic shadow casting from the PointLight at the Sun’s center.
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd solar-system-3d
+   ```
 
-### Asteroid Belts
-- **Procedurally Generated**: 1000 asteroids for the belt between Mars and Jupiter, 3000 for the Kuiper belt.
-- **Performance Optimization**: Simplified textures to ensure high performance.
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-### Select Feature
-- **Hover Effect**: White outline around planets when hovered.
-- **Zoom In**: Camera zooms in and displays planet details on click.
-- **Zoom Out**: Returns to default view on closing the pop-up.
+3. **Start the development server**
+   ```bash
+   npm run dev
+   ```
 
-## Resources
-3D objects and textures were sourced from the following free repositories:
-- [NASA 3D Resources](https://nasa3d.arc.nasa.gov/images)
-- [Solar System Scope Textures](https://www.solarsystemscope.com/textures/)
-- [Planet Pixel Emporium](https://planetpixelemporium.com/index.php)
-- [TurboSquid](https://www.turbosquid.com/)
+4. **Open your browser**
 
-## Installation and Setup
-1. Clone the repository:
-    ```sh
-    git clone https://github.com/your-username/3d-solar-system.git
-    ```
-2. Navigate to the project directory:
-    ```sh
-    cd 3d-solar-system
-    ```
-3. Install dependencies:
-    ```sh
-    npm install
-    ```
-4. Start the development server:
-    ```sh
-    npm run dev
-    ```
-5. Open your browser and navigate to `http://localhost:3000` to see the 3D Solar System in action.
+   The project will be available at `http://localhost:5173`
 
-## Conclusion
-This project is a comprehensive representation of our solar system, bringing together realistic modeling, advanced visual effects, and interactive features. Explore the planets, their moons, and the vast asteroid belts, all from the comfort of your screen.
+## Usage
 
-## License
+### Basic Navigation
+- **Left mouse + drag**: Rotate the view
+- **Right mouse + drag**: Pan the camera
+- **Mouse wheel**: Zoom in/out
 
-This project is licensed under the [MIT License](./LICENSE).
+### Planet Interaction
+- **Hover**: Highlight the planet with a glowing outline
+- **Click**: Automatic zoom on the selected planet
+- **Popup**: Display detailed planet information
+- **Close popup**: Return to the general solar system view
 
-Feel free to contribute, suggest improvements, or use this project as a foundation for your own THREE.js experiments. Happy exploring!
+### Available Planets
+- **Mercury** - The planet closest to the Sun
+- **Venus** - The hottest planet in the solar system
+- **Earth** - Our planet with the Moon
+- **Mars** - The red planet with two moons
+- **Jupiter** - The gas giant with its 4 main moons
+- **Saturn** - The planet with spectacular rings
+- **Uranus** - The tilted planet with thin rings
+- **Neptune** - The farthest planet from the Sun
+- **Pluto** - The dwarf planet
+
+## Project Structure
+
+```
+solar-system-3d/
+├── src/
+│   ├── index.html          # Main HTML
+│   ├── script.js           # Three.js logic and interactivity
+│   ├── style.css           # CSS styles
+│   ├── asteroids/          # 3D asteroid models
+│   └── images/             # Textures and materials
+│       ├── mars/           # 3D models of Mars' moons
+│       └── [planets]/      # Textures for each planet
+├── static/                 # Static assets
+├── dist/                   # Production build
+├── package.json            # Dependencies and scripts
+├── vite.config.js          # Vite configuration
+└── readme.md              # This documentation
+```
+
+## Available Scripts
+
+- `npm run dev` - Start the development server
+- `npm run build` - Create production build
+
+## Technical Features
+
+### Rendering
+- **WebGL Renderer** with cubemap texture support
+- **Post-processing pipeline** with bloom and outline effects
+- **Shadow mapping** for realistic lighting
+- **Tone mapping** ACES Filmic for accurate colors
+
+### Optimizations
+- **LOD (Level of Detail)** for optimal performance
+- **Automatic frustum culling**
+- **Texture compression** for fast loading
+- **Efficient memory management**
+
+### Physics and Animations
+- **Realistic orbits** based on astronomical data
+- **Planetary rotation** with relative speeds
+- **Smooth animations** with easing functions
+- **Particle system** for asteroids
+
+
+##  License
+
