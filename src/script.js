@@ -142,35 +142,26 @@ function onDocumentMouseDown(event) {
       selectedPlanet = newPlanet;
       accelerationOrbit = 0; // Stop orbital movement
 
-      // Get the new planet position and radius
+      // Get the planet position
       const planetPosition = new THREE.Vector3();
       selectedPlanet.planet.getWorldPosition(planetPosition);
 
-      // Get planet radius from geometry
+      // Get planet radius for optimal zoom distance
       const planetRadius = selectedPlanet.planet.geometry.parameters.radius;
+      
+      // Calculate zoom distance based on planet size (3.5x radius for close view)
+      const zoomDistance = planetRadius * 3.5;
 
-      // Calculate optimal camera distance based on planet size
-      // Formula: distance = planet_radius * factor / tan(fov/2)
-      const fovInRadians = (camera.fov * Math.PI) / 180;
-      const viewportHeight = renderer.domElement.clientHeight;
-      const idealDistance = Math.max(planetRadius * 8 / Math.tan(fovInRadians / 2), offset);
+      // Calculate direction from planet to current camera
+      const directionToCamera = new THREE.Vector3();
+      directionToCamera.subVectors(camera.position, planetPosition).normalize();
 
-      // Calculate camera position with better viewing angle
-      // Position camera at a 45-degree angle for optimal viewing
-      const angle = Math.atan2(planetPosition.z, planetPosition.x);
-      const heightOffset = planetRadius * 0.3; // Slight height offset for better perspective
-
-      targetCameraPosition.set(
-        planetPosition.x + Math.cos(angle + Math.PI * 0.25) * idealDistance,
-        planetPosition.y + heightOffset,
-        planetPosition.z + Math.sin(angle + Math.PI * 0.25) * idealDistance
-      );
-
+      // Position camera at zoom distance along the same direction
+      targetCameraPosition.copy(planetPosition).add(directionToCamera.multiplyScalar(zoomDistance));
       targetControlsTarget.copy(planetPosition);
       isMovingTowardsPlanet = true;
 
-      // Start all animations
-      animatePlanetScale(selectedPlanet.planet, 0.5, 500);
+      // Start animations
       startPlanetInfoAnimation(selectedPlanet.name);
       animateCameraAdjustment(500);
     }
@@ -178,45 +169,23 @@ function onDocumentMouseDown(event) {
 }
 
 function identifyPlanet(clickedObject) {
-  // Calculate dynamic offset based on the actual planet size and current camera FOV
-  const fovInRadians = (camera.fov * Math.PI) / 180;
-  const viewportHeight = renderer.domElement.clientHeight;
-  
   if (clickedObject.material === mercury.planet.material) {
-    const planetRadius = mercury.planet.geometry.parameters.radius;
-    offset = Math.max(planetRadius * 12 / Math.tan(fovInRadians / 2), 8);
     return mercury;
   } else if (clickedObject.material === venus.Atmosphere.material) {
-    const planetRadius = venus.planet.geometry.parameters.radius;
-    offset = Math.max(planetRadius * 6 / Math.tan(fovInRadians / 2), 20);
     return venus;
   } else if (clickedObject.material === earth.Atmosphere.material) {
-    const planetRadius = earth.planet.geometry.parameters.radius;
-    offset = Math.max(planetRadius * 6 / Math.tan(fovInRadians / 2), 20);
     return earth;
   } else if (clickedObject.material === mars.planet.material) {
-    const planetRadius = mars.planet.geometry.parameters.radius;
-    offset = Math.max(planetRadius * 8 / Math.tan(fovInRadians / 2), 12);
     return mars;
   } else if (clickedObject.material === jupiter.planet.material) {
-    const planetRadius = jupiter.planet.geometry.parameters.radius;
-    offset = Math.max(planetRadius * 4 / Math.tan(fovInRadians / 2), 40);
     return jupiter;
   } else if (clickedObject.material === saturn.planet.material) {
-    const planetRadius = saturn.planet.geometry.parameters.radius;
-    offset = Math.max(planetRadius * 4 / Math.tan(fovInRadians / 2), 40);
     return saturn;
   } else if (clickedObject.material === uranus.planet.material) {
-    const planetRadius = uranus.planet.geometry.parameters.radius;
-    offset = Math.max(planetRadius * 6 / Math.tan(fovInRadians / 2), 20);
     return uranus;
   } else if (clickedObject.material === neptune.planet.material) {
-    const planetRadius = neptune.planet.geometry.parameters.radius;
-    offset = Math.max(planetRadius * 6 / Math.tan(fovInRadians / 2), 15);
     return neptune;
   } else if (clickedObject.material === pluto.planet.material) {
-    const planetRadius = pluto.planet.geometry.parameters.radius;
-    offset = Math.max(planetRadius * 12 / Math.tan(fovInRadians / 2), 8);
     return pluto;
   } 
 
@@ -340,9 +309,6 @@ function closeInfo() {
   animateCanvasHeight(100, 500, () => {
     // after animation
   });
-  if (selectedPlanet) {
-    animatePlanetScale(selectedPlanet.planet, 1, 500);
-  }
   animateCameraAdjustmentReverse(500);
   isZoomingOut = true;
   
@@ -359,9 +325,6 @@ function closeInfoNoZoomOut() {
   var info = document.getElementById('planetInfo');
   info.style.display = 'none';
   info.style.transform = 'translateY(100%)';
-  if (selectedPlanet) {
-    selectedPlanet.planet.scale.set(1, 1, 1);
-  }
   accelerationOrbit = 1;
 }
 // ******  SUN  ******
@@ -899,30 +862,32 @@ function animate() {
   }
 // ******  ZOOM IN/OUT  ******
 if (isMovingTowardsPlanet) {
-  // Use smooth easing for camera movement
-  const lerpFactor = 0.03;
-  const targetLerpFactor = 0.05;
+  // Smooth lerp with higher factor for more fluid movement
+  const lerpFactor = 0.08;
   
-  // Move camera towards target with easing
+  // Move camera and target simultaneously
   camera.position.lerp(targetCameraPosition, lerpFactor);
-  controls.target.lerp(targetControlsTarget, targetLerpFactor);
+  controls.target.lerp(targetControlsTarget, lerpFactor);
 
-  // Check if the camera is close to the target position
+  // Check if close enough to target
   const cameraDistance = camera.position.distanceTo(targetCameraPosition);
   const targetDistance = controls.target.distanceTo(targetControlsTarget);
   
-  if (cameraDistance < 0.5 && targetDistance < 0.5) {
+  if (cameraDistance < 0.1 && targetDistance < 0.1) {
       isMovingTowardsPlanet = false;
-      // Snap to exact target to prevent floating
       camera.position.copy(targetCameraPosition);
       controls.target.copy(targetControlsTarget);
   }
 } else if (isZoomingOut) {
-  camera.position.lerp(zoomOutTargetPosition, 0.05);
+  const lerpFactor = 0.08;
+  
+  camera.position.lerp(zoomOutTargetPosition, lerpFactor);
+  controls.target.lerp(new THREE.Vector3(0, 0, 0), lerpFactor);
 
-  if (camera.position.distanceTo(zoomOutTargetPosition) < 1) {
+  if (camera.position.distanceTo(zoomOutTargetPosition) < 0.5 && controls.target.distanceTo(new THREE.Vector3(0, 0, 0)) < 0.5) {
       isZoomingOut = false;
       camera.position.copy(zoomOutTargetPosition);
+      controls.target.set(0, 0, 0);
   }
 }  controls.update();
   requestAnimationFrame(animate);
