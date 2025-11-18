@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import * as dat from 'dat.gui';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -94,25 +93,10 @@ scene.background = cubeTextureLoader.load([
   bgTexture2
 ]);
 
-// ******  CONTROLS  ******
-const gui = new dat.GUI({ autoPlace: false });
-const customContainer = document.getElementById('gui-container');
-customContainer.appendChild(gui.domElement);
-
 // ****** SETTINGS FOR INTERACTIVE CONTROLS  ******
-const settings = {
-  accelerationOrbit: 1,
-  acceleration: 1,
-  sunIntensity: 1.9
-};
-
-gui.add(settings, 'accelerationOrbit', 0, 10).onChange(value => {
-});
-gui.add(settings, 'acceleration', 0, 10).onChange(value => {
-});
-gui.add(settings, 'sunIntensity', 1, 10).onChange(value => {
-  sunMat.emissiveIntensity = value;
-});
+let accelerationOrbit = 1;
+let acceleration = 1;
+const sunIntensity = 1.9;
 
 // mouse movement
 const raycaster = new THREE.Raycaster();
@@ -145,7 +129,7 @@ function onDocumentMouseDown(event) {
     if (selectedPlanet) {
       closeInfoNoZoomOut();
       
-      settings.accelerationOrbit = 0; // Stop orbital movement
+      accelerationOrbit = 0; // Stop orbital movement
 
       // Update camera to look at the selected planet
       const planetPosition = new THREE.Vector3();
@@ -210,7 +194,7 @@ let zoomOutTargetPosition = new THREE.Vector3(-175, 115, 5);
 function closeInfo() {
   var info = document.getElementById('planetInfo');
   info.style.display = 'none';
-  settings.accelerationOrbit = 1;
+  accelerationOrbit = 1;
   isZoomingOut = true;
   controls.target.set(0, 0, 0);
 }
@@ -219,7 +203,7 @@ window.closeInfo = closeInfo;
 function closeInfoNoZoomOut() {
   var info = document.getElementById('planetInfo');
   info.style.display = 'none';
-  settings.accelerationOrbit = 1;
+  accelerationOrbit = 1;
 }
 // ******  SUN  ******
 let sunMat;
@@ -229,7 +213,7 @@ const sunGeom = new THREE.SphereGeometry(sunSize, 32, 20);
 sunMat = new THREE.MeshStandardMaterial({
   emissive: 0xFFF88F,
   emissiveMap: loadTexture.load(sunTexture),
-  emissiveIntensity: settings.sunIntensity
+  emissiveIntensity: sunIntensity
 });
 const sun = new THREE.Mesh(sunGeom, sunMat);
 scene.add(sun);
@@ -439,7 +423,7 @@ const earthMoon = [{
   size: 1.6,
   texture: earthMoonTexture,
   bump: earthMoonBump,
-  orbitSpeed: 0.001 * settings.accelerationOrbit,
+  orbitSpeed: 0.001 * accelerationOrbit,
   orbitRadius: 10
 }]
 
@@ -449,7 +433,7 @@ const marsMoons = [
     modelPath: '/images/mars/phobos.glb',
     scale: 0.1,
     orbitRadius: 5,
-    orbitSpeed: 0.002 * settings.accelerationOrbit,
+    orbitSpeed: 0.002 * accelerationOrbit,
     position: 100,
     mesh: null
   },
@@ -457,7 +441,7 @@ const marsMoons = [
     modelPath: '/images/mars/deimos.glb',
     scale: 0.1,
     orbitRadius: 9,
-    orbitSpeed: 0.0005 * settings.accelerationOrbit,
+    orbitSpeed: 0.0005 * accelerationOrbit,
     position: 120,
     mesh: null
   }
@@ -469,25 +453,25 @@ const jupiterMoons = [
     size: 1.6,
     texture: ioTexture,
     orbitRadius: 20,
-    orbitSpeed: 0.0005 * settings.accelerationOrbit
+    orbitSpeed: 0.0005 * accelerationOrbit
   },
   {
     size: 1.4,
     texture: europaTexture,
     orbitRadius: 24,
-    orbitSpeed: 0.00025 * settings.accelerationOrbit
+    orbitSpeed: 0.00025 * accelerationOrbit
   },
   {
     size: 2,
     texture: ganymedeTexture,
     orbitRadius: 28,
-    orbitSpeed: 0.000125 * settings.accelerationOrbit
+    orbitSpeed: 0.000125 * accelerationOrbit
   },
   {
     size: 1.7,
     texture: callistoTexture,
     orbitRadius: 32,
-    orbitSpeed: 0.00006 * settings.accelerationOrbit
+    orbitSpeed: 0.00006 * accelerationOrbit
   }
 ];
 
@@ -661,27 +645,27 @@ pluto.planet.receiveShadow = true;
 function animate(){
 
   //rotating planets around the sun and itself
-  sun.rotateY(0.001 * settings.acceleration);
-  mercury.planet.rotateY(0.001 * settings.acceleration);
-  mercury.planet3d.rotateY(0.004 * settings.accelerationOrbit);
-  venus.planet.rotateY(0.0005 * settings.acceleration)
-  venus.Atmosphere.rotateY(0.0005 * settings.acceleration);
-  venus.planet3d.rotateY(0.0006 * settings.accelerationOrbit);
-  earth.planet.rotateY(0.005 * settings.acceleration);
-  earth.Atmosphere.rotateY(0.001 * settings.acceleration);
-  earth.planet3d.rotateY(0.001 * settings.accelerationOrbit);
-  mars.planet.rotateY(0.01 * settings.acceleration);
-  mars.planet3d.rotateY(0.0007 * settings.accelerationOrbit);
-  jupiter.planet.rotateY(0.005 * settings.acceleration);
-  jupiter.planet3d.rotateY(0.0003 * settings.accelerationOrbit);
-  saturn.planet.rotateY(0.01 * settings.acceleration);
-  saturn.planet3d.rotateY(0.0002 * settings.accelerationOrbit);
-  uranus.planet.rotateY(0.005 * settings.acceleration);
-  uranus.planet3d.rotateY(0.0001 * settings.accelerationOrbit);
-  neptune.planet.rotateY(0.005 * settings.acceleration);
-  neptune.planet3d.rotateY(0.00008 * settings.accelerationOrbit);
-  pluto.planet.rotateY(0.001 * settings.acceleration)
-  pluto.planet3d.rotateY(0.00006 * settings.accelerationOrbit)
+  sun.rotateY(0.001 * acceleration);
+  mercury.planet.rotateY(0.001 * acceleration);
+  mercury.planet3d.rotateY(0.004 * accelerationOrbit);
+  venus.planet.rotateY(0.0005 * acceleration)
+  venus.Atmosphere.rotateY(0.0005 * acceleration);
+  venus.planet3d.rotateY(0.0006 * accelerationOrbit);
+  earth.planet.rotateY(0.005 * acceleration);
+  earth.Atmosphere.rotateY(0.001 * acceleration);
+  earth.planet3d.rotateY(0.001 * accelerationOrbit);
+  mars.planet.rotateY(0.01 * acceleration);
+  mars.planet3d.rotateY(0.0007 * accelerationOrbit);
+  jupiter.planet.rotateY(0.005 * acceleration);
+  jupiter.planet3d.rotateY(0.0003 * accelerationOrbit);
+  saturn.planet.rotateY(0.01 * acceleration);
+  saturn.planet3d.rotateY(0.0002 * accelerationOrbit);
+  uranus.planet.rotateY(0.005 * acceleration);
+  uranus.planet3d.rotateY(0.0001 * accelerationOrbit);
+  neptune.planet.rotateY(0.005 * acceleration);
+  neptune.planet3d.rotateY(0.00008 * accelerationOrbit);
+  pluto.planet.rotateY(0.001 * acceleration)
+  pluto.planet3d.rotateY(0.00006 * accelerationOrbit)
 
 // Animate Earth's moon
 if (earth.moons) {
@@ -729,8 +713,8 @@ if (jupiter.moons) {
 // Rotate asteroids
 asteroids.forEach(asteroid => {
   asteroid.rotation.y += 0.0001;
-  asteroid.position.x = asteroid.position.x * Math.cos(0.0001 * settings.accelerationOrbit) + asteroid.position.z * Math.sin(0.0001 * settings.accelerationOrbit);
-  asteroid.position.z = asteroid.position.z * Math.cos(0.0001 * settings.accelerationOrbit) - asteroid.position.x * Math.sin(0.0001 * settings.accelerationOrbit);
+  asteroid.position.x = asteroid.position.x * Math.cos(0.0001 * accelerationOrbit) + asteroid.position.z * Math.sin(0.0001 * accelerationOrbit);
+  asteroid.position.z = asteroid.position.z * Math.cos(0.0001 * accelerationOrbit) - asteroid.position.x * Math.sin(0.0001 * accelerationOrbit);
 });
 
 // ****** OUTLINES ON PLANETS ******
