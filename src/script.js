@@ -831,12 +831,12 @@ function animate() {
     });
   }
 
-  // Rotate asteroids
-  asteroids.forEach(asteroid => {
-    asteroid.rotation.y += 0.0001;
-    asteroid.position.x = asteroid.position.x * Math.cos(0.0001 * accelerationOrbit) + asteroid.position.z * Math.sin(0.0001 * accelerationOrbit);
-    asteroid.position.z = asteroid.position.z * Math.cos(0.0001 * accelerationOrbit) - asteroid.position.x * Math.sin(0.0001 * accelerationOrbit);
-  });
+  // // Rotate asteroids
+  // asteroids.forEach(asteroid => {
+  //   asteroid.rotation.y += 0.0001;
+  //   asteroid.position.x = asteroid.position.x * Math.cos(0.0001 * accelerationOrbit) + asteroid.position.z * Math.sin(0.0001 * accelerationOrbit);
+  //   asteroid.position.z = asteroid.position.z * Math.cos(0.0001 * accelerationOrbit) - asteroid.position.x * Math.sin(0.0001 * accelerationOrbit);
+  // });
 
   // ****** OUTLINES ON PLANETS ******
   raycaster.setFromCamera(mouse, camera);
@@ -893,8 +893,8 @@ if (isMovingTowardsPlanet) {
   requestAnimationFrame(animate);
   composer.render();
 }
-loadAsteroids('/asteroids/asteroidPack.glb', 1000, 130, 160);
-loadAsteroids('/asteroids/asteroidPack.glb', 3000, 352, 370);
+// loadAsteroids('/asteroids/asteroidPack.glb', 1000, 130, 160);
+// loadAsteroids('/asteroids/asteroidPack.glb', 3000, 352, 370);
 animate();
 
 window.addEventListener('mousemove', onMouseMove, false);
