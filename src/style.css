@@ -151,17 +151,21 @@ p {
     flex-grow: 1;
     cursor: pointer;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     border: none;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     min-width: 40px;
     max-width: 200px;
+    transform: scale(1);
+    filter: brightness(0.85) saturate(0.8);
 }
 
 .timeline-item:hover {
     z-index: 5;
-    filter: brightness(1.1);
+    filter: brightness(1.2) saturate(1.1);
+    transform: scale(1.08) translateY(-5px);
+    box-shadow: 0 8px 20px rgba(255, 255, 255, 0.2);
 }
 
 .timeline-item img {
@@ -169,6 +173,11 @@ p {
     height: 100%;
     object-fit: cover;
     display: block;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.timeline-item:hover img {
+    transform: scale(1.05);
 }
 
 /* Image preview styles */
@@ -184,28 +193,43 @@ p {
     background: rgba(0, 0, 0, 0.95);
     padding: 0;
     z-index: 1000;
-    /* box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8); */
     pointer-events: all;
-    transition: width 0.3s ease, height 0.3s ease;
+    transition: width 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55), 
+                height 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55),
+                opacity 0.4s ease,
+                transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
     position: relative;
     cursor: default;
+    opacity: 0;
+    transform: scale(0);
+    transform-origin: center center;
 }
 
 .timeline-image-preview.active {
-    width: 300px;
+    width: auto;
     height: auto;
     max-height: 200px;
     min-height: 150px;
     max-width: 300px;
+    opacity: 1;
+    transform: scale(1);
 }
 
 .timeline-image-preview img {
-    width: 400px;
+    width: auto;
     height: 300px;
     object-fit: contain;
     display: block;
     /* background: white; */
     margin: 0 auto;
+    transition: opacity 0.4s ease 0.2s, transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    opacity: 0;
+    transform: scale(0);
+}
+
+.timeline-image-preview.active img {
+    opacity: 1;
+    transform: scale(1);
 }
 
 .preview-info {
