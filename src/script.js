@@ -171,6 +171,9 @@ function onDocumentMouseDown(event) {
       // Start animations
       startPlanetInfoAnimation(selectedPlanet.name);
       animateCameraAdjustment(500);
+      
+      // Restore original textures when zooming on a planet
+      restoreAllOriginalTextures();
     }
   }
 }
@@ -329,6 +332,16 @@ function closeInfo() {
   // Reset camera to original position and target
   zoomOutTargetPosition.copy(originalCameraPosition);
   controls.target.set(0, 0, 0);
+  
+  // Apply mosaic textures when returning to full solar system view
+  setTimeout(() => {
+    if (mosaicTexturesReady) {
+      applyPreloadedTextures();
+    } else {
+      applyMosaicTextures();
+    }
+  }, 300);
+  
   setTimeout(() => {
     info.style.display = 'none';
   }, 500);
@@ -378,6 +391,13 @@ function createPlanet(planetName, size, position, tilt, texture, bump, ring, atm
       map: loadTexture.load(texture)
     });
   }
+  
+  // Store original texture info for later reference
+  material.userData = {
+    originalTexture: texture,
+    originalBump: bump,
+    planetName: planetName
+  };
 
   const name = planetName;
   const geometry = new THREE.SphereGeometry(size, 32, 20);
@@ -463,7 +483,256 @@ function createPlanet(planetName, size, position, tilt, texture, bump, ring, atm
   //add planet system to planet3d object and to the scene
   planet3d.add(planetSystem);
   scene.add(planet3d);
-  return { name, planet, planet3d, Atmosphere, moons, planetSystem, Ring };
+  return { name, planet, planet3d, Atmosphere, moons, planetSystem, Ring, originalMaterial: material };
+}
+
+// ******  FUNCTION TO LOAD PLANET IMAGES FROM JSON  ******
+function getPlanetImagesFromJSON(planetName) {
+  const planetEntries = [];
+  let currentPlanet = null;
+  
+  // Find all entries for this planet
+  for (let i = 0; i < sistemaSolareData.length; i++) {
+    const entry = sistemaSolareData[i];
+    const firstColumn = entry['In what ways the perception of the solar system evolved over the course of human history, from ancient cosmologies to modern science?  Question more specific  (timeline)'];
+    
+    if (firstColumn && firstColumn !== 'null') {
+      currentPlanet = firstColumn;
+    }
+    
+    if (currentPlanet && currentPlanet.toLowerCase() === planetName.toLowerCase()) {
+      planetEntries.push(entry);
+    }
+    
+    if (currentPlanet && currentPlanet.toLowerCase() !== planetName.toLowerCase() && planetEntries.length > 0) {
+      break;
+    }
+  }
+
+  // Collect all valid images
+  const allImages = [];
+  planetEntries.slice(1).forEach((entry) => {
+    const imageColumns = ['Unnamed: 7', 'Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10', 'Unnamed: 11'];
+    imageColumns.forEach(column => {
+      const imageUrl = entry[column];
+      if (imageUrl && imageUrl !== null && imageUrl !== 'null' && imageUrl.startsWith('http')) {
+        allImages.push(imageUrl);
+      }
+    });
+  });
+
+  return allImages;
+}
+
+// ******  APPLY PLANET-LIKE FILTERS TO CANVAS  ******
+function applyPlanetFilters(ctx, size) {
+  // Get image data
+  const imageData = ctx.getImageData(0, 0, size, size);
+  const data = imageData.data;
+  
+  // Apply color adjustments and vignette effect
+  const centerX = size / 2;
+  const centerY = size / 2;
+  const maxRadius = size / 2;
+  
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      
+      // Calculate distance from center
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const normalizedDistance = distance / maxRadius;
+      
+      // Apply vignette effect (darker at edges)
+      const vignette = Math.max(0, 1 - Math.pow(normalizedDistance, 1.5) * 0.4);
+      
+      // Apply spherical shading
+      const sphereFactor = Math.cos(normalizedDistance * Math.PI / 2);
+      
+      // Reduce saturation slightly for more realistic look
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const gray = (r + g + b) / 3;
+      const desaturation = 0.3;
+      
+      data[i] = (r * (1 - desaturation) + gray * desaturation) * vignette * (0.7 + sphereFactor * 0.3);
+      data[i + 1] = (g * (1 - desaturation) + gray * desaturation) * vignette * (0.7 + sphereFactor * 0.3);
+      data[i + 2] = (b * (1 - desaturation) + gray * desaturation) * vignette * (0.7 + sphereFactor * 0.3);
+    }
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+  
+  // Apply subtle blur at edges
+  ctx.globalCompositeOperation = 'destination-in';
+  const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(0.7, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0.95)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// ******  CREATE MOSAIC TEXTURE FROM IMAGES  ******
+function createMosaicTexture(planetName, planet) {
+  const images = getPlanetImagesFromJSON(planetName);
+  
+  if (images.length === 0) {
+    console.log(`No images found for ${planetName}`);
+    return;
+  }
+
+  // Create a canvas to combine multiple images
+  const canvas = document.createElement('canvas');
+  const size = 2048; // Texture size
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  // Calculate grid dimensions
+  const cols = Math.ceil(Math.sqrt(images.length));
+  const rows = Math.ceil(images.length / cols);
+  const cellWidth = size / cols;
+  const cellHeight = size / rows;
+
+  let loadedImages = 0;
+  const totalImages = Math.min(images.length, cols * rows);
+
+  images.slice(0, totalImages).forEach((url, index) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      const x = col * cellWidth;
+      const y = row * cellHeight;
+      
+      // Draw image in its cell with slight opacity to blend
+      ctx.globalAlpha = 0.9;
+      ctx.drawImage(img, x, y, cellWidth, cellHeight);
+      ctx.globalAlpha = 1.0;
+      
+      loadedImages++;
+      
+      // When all images are loaded, apply filters and update the planet texture
+      if (loadedImages === totalImages) {
+        // Apply planet-like filters
+        applyPlanetFilters(ctx, size);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        
+        // Handle Earth's shader material specially
+        if (planetName === 'Earth') {
+          // Replace Earth's shader material with a simple material showing the mosaic
+          const mosaicMaterial = new THREE.MeshPhongMaterial({
+            map: texture,
+            shininess: 5,
+            specular: 0x222222,
+            transparent: true,
+            opacity: 0.85
+          });
+          mosaicMaterial.userData = planet.material.userData;
+          planet.material = mosaicMaterial;
+        } else if (planet.material.userData.originalTexture instanceof THREE.Material) {
+          // For other shader materials
+          console.log(`Cannot apply mosaic to shader material for ${planetName}`);
+        } else {
+          planet.material.map = texture;
+          planet.material.shininess = 5;
+          planet.material.specular = new THREE.Color(0x222222);
+          planet.material.transparent = true;
+          planet.material.opacity = 0.85;
+          planet.material.needsUpdate = true;
+        }
+      }
+    };
+    
+    img.onerror = () => {
+      loadedImages++;
+      console.log(`Failed to load image: ${url}`);
+      
+      if (loadedImages === totalImages) {
+        applyPlanetFilters(ctx, size);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        
+        if (planetName === 'Earth') {
+          const mosaicMaterial = new THREE.MeshPhongMaterial({
+            map: texture,
+            shininess: 5,
+            specular: 0x222222,
+            transparent: true,
+            opacity: 0.85
+          });
+          mosaicMaterial.userData = planet.material.userData;
+          planet.material = mosaicMaterial;
+        } else if (!(planet.material.userData.originalTexture instanceof THREE.Material)) {
+          planet.material.map = texture;
+          planet.material.shininess = 5;
+          planet.material.specular = new THREE.Color(0x222222);
+          planet.material.transparent = true;
+          planet.material.opacity = 0.85;
+          planet.material.needsUpdate = true;
+        }
+      }
+    };
+    
+    img.src = url;
+  });
+}
+
+// ******  RESTORE ORIGINAL PLANET TEXTURE  ******
+function restoreOriginalTexture(planet, planetObj) {
+  const userData = planet.material.userData;
+  
+  if (!userData || !userData.originalTexture) return;
+  
+  // Special handling for Earth's shader material
+  if (userData.planetName === 'Earth' && userData.originalTexture instanceof THREE.Material) {
+    planet.material = planetObj.originalMaterial;
+    return;
+  }
+  
+  if (userData.originalTexture instanceof THREE.Material) {
+    // Cannot restore other shader materials, skip
+    return;
+  }
+  
+  // Restore original texture
+  planet.material.map = loadTexture.load(userData.originalTexture);
+  if (userData.originalBump) {
+    planet.material.bumpMap = loadTexture.load(userData.originalBump);
+  }
+  planet.material.needsUpdate = true;
+}
+
+// ******  APPLY MOSAIC TEXTURES TO ALL PLANETS  ******
+function applyMosaicTextures() {
+  const planets = [mercury, venus, earth, mars, jupiter, saturn, uranus, neptune, pluto];
+  
+  planets.forEach(planetObj => {
+    createMosaicTexture(planetObj.name, planetObj.planet);
+  });
+}
+
+// ******  RESTORE ALL ORIGINAL TEXTURES  ******
+function restoreAllOriginalTextures() {
+  const planets = [mercury, venus, earth, mars, jupiter, saturn, uranus, neptune, pluto];
+  
+  planets.forEach(planetObj => {
+    restoreOriginalTexture(planetObj.planet, planetObj);
+  });
 }
 
 
@@ -910,6 +1179,142 @@ if (isMovingTowardsPlanet) {
 }
 // loadAsteroids('/asteroids/asteroidPack.glb', 1000, 130, 160);
 // loadAsteroids('/asteroids/asteroidPack.glb', 3000, 352, 370);
+
+// ******  PRELOAD MOSAIC TEXTURES  ******
+let mosaicTexturesReady = false;
+const preloadedMosaicTextures = new Map();
+
+function preloadMosaicTextures() {
+  const planets = [
+    { name: 'Mercury', obj: mercury },
+    { name: 'Venus', obj: venus },
+    { name: 'Earth', obj: earth },
+    { name: 'Mars', obj: mars },
+    { name: 'Jupiter', obj: jupiter },
+    { name: 'Saturn', obj: saturn },
+    { name: 'Uranus', obj: uranus },
+    { name: 'Neptune', obj: neptune },
+    { name: 'Pluto', obj: pluto }
+  ];
+  
+  let loadedCount = 0;
+  const totalPlanets = planets.length;
+  
+  planets.forEach(({ name, obj }) => {
+    const images = getPlanetImagesFromJSON(name);
+    
+    if (images.length === 0) {
+      loadedCount++;
+      if (loadedCount === totalPlanets) {
+        applyPreloadedTextures();
+      }
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    const size = 2048;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    const cols = Math.ceil(Math.sqrt(images.length));
+    const rows = Math.ceil(images.length / cols);
+    const cellWidth = size / cols;
+    const cellHeight = size / rows;
+
+    let loadedImages = 0;
+    const totalImages = Math.min(images.length, cols * rows);
+
+    images.slice(0, totalImages).forEach((url, index) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        const x = col * cellWidth;
+        const y = row * cellHeight;
+        
+        ctx.globalAlpha = 0.9;
+        ctx.drawImage(img, x, y, cellWidth, cellHeight);
+        ctx.globalAlpha = 1.0;
+        
+        loadedImages++;
+        
+        if (loadedImages === totalImages) {
+          applyPlanetFilters(ctx, size);
+          
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.needsUpdate = true;
+          texture.wrapS = THREE.RepeatWrapping;
+          texture.wrapT = THREE.RepeatWrapping;
+          
+          preloadedMosaicTextures.set(name, texture);
+          loadedCount++;
+          
+          if (loadedCount === totalPlanets) {
+            applyPreloadedTextures();
+          }
+        }
+      };
+      
+      img.onerror = () => {
+        loadedImages++;
+        if (loadedImages === totalImages) {
+          applyPlanetFilters(ctx, size);
+          
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.needsUpdate = true;
+          texture.wrapS = THREE.RepeatWrapping;
+          texture.wrapT = THREE.RepeatWrapping;
+          
+          preloadedMosaicTextures.set(name, texture);
+          loadedCount++;
+          
+          if (loadedCount === totalPlanets) {
+            applyPreloadedTextures();
+          }
+        }
+      };
+      
+      img.src = url;
+    });
+  });
+}
+
+function applyPreloadedTextures() {
+  const planets = [mercury, venus, earth, mars, jupiter, saturn, uranus, neptune, pluto];
+  
+  planets.forEach(planetObj => {
+    const texture = preloadedMosaicTextures.get(planetObj.name);
+    if (!texture) return;
+    
+    if (planetObj.name === 'Earth') {
+      const mosaicMaterial = new THREE.MeshPhongMaterial({
+        map: texture,
+        shininess: 5,
+        specular: 0x222222,
+        transparent: true,
+        opacity: 0.85
+      });
+      mosaicMaterial.userData = planetObj.planet.material.userData;
+      planetObj.planet.material = mosaicMaterial;
+    } else if (!(planetObj.planet.material.userData.originalTexture instanceof THREE.Material)) {
+      planetObj.planet.material.map = texture;
+      planetObj.planet.material.shininess = 5;
+      planetObj.planet.material.specular = new THREE.Color(0x222222);
+      planetObj.planet.material.transparent = true;
+      planetObj.planet.material.opacity = 0.85;
+      planetObj.planet.material.needsUpdate = true;
+    }
+  });
+  
+  mosaicTexturesReady = true;
+}
+
+// Start preloading immediately after planets are created
+preloadMosaicTextures();
+
 animate();
 
 window.addEventListener('mousemove', onMouseMove, false);
