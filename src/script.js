@@ -56,6 +56,7 @@ renderer.domElement.style.left = '0';
 renderer.domElement.style.display = 'block';
 renderer.domElement.style.backgroundColor = '#000';
 renderer.domElement.style.zIndex = '0';
+renderer.domElement.style.opacity = '0';
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
 console.log("Create an orbit control");
@@ -1310,6 +1311,23 @@ function applyPreloadedTextures() {
   });
   
   mosaicTexturesReady = true;
+  
+  // Force a render update to ensure textures are applied
+  composer.render();
+  
+  // Show the scene now that textures are ready
+  setTimeout(() => {
+    renderer.domElement.style.transition = 'opacity 0.5s ease';
+    renderer.domElement.style.opacity = '1';
+    
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) {
+      loadingScreen.classList.add('fade-out');
+      setTimeout(() => {
+        loadingScreen.style.display = 'none';
+      }, 500);
+    }
+  }, 300);
 }
 
 // Start preloading immediately after planets are created
