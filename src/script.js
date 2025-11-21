@@ -34,6 +34,7 @@ import uranusTexture from '/images/uranus.jpg';
 import uraRingTexture from '/images/uranus_ring.png';
 import neptuneTexture from '/images/neptune.jpg';
 import plutoTexture from '/images/plutomap.jpg';
+import sistemaSolareData from './json/sistema_solare_1.json';
 
 // ******  SETUP  ******
 console.log("Create the scene");
@@ -62,6 +63,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.75;
 controls.screenSpacePanning = false;
+controls.enabled = true;
 
 console.log("Set up texture loader");
 const cubeTextureLoader = new THREE.CubeTextureLoader();
@@ -126,6 +128,11 @@ let offset;
 
 function onDocumentMouseDown(event) {
   event.preventDefault();
+
+  // Prevent planet selection if popup is open
+  if (isInfoShown) {
+    return;
+  }
 
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
@@ -285,14 +292,16 @@ function animateCameraAdjustmentReverse(duration) {
 function startPlanetInfoAnimation(planet) {
   var info = document.getElementById('planetInfo');
   var name = document.getElementById('planetName');
-  var details = document.getElementById('planetDetails');
 
   name.innerText = planet;
-  details.innerText = `Radius: ${planetData[planet].radius}\nTilt: ${planetData[planet].tilt}\nRotation: ${planetData[planet].rotation}\nOrbit: ${planetData[planet].orbit}\nDistance: ${planetData[planet].distance}\nMoons: ${planetData[planet].moons}\nInfo: ${planetData[planet].info}`;
+
+  // Load timeline
+  loadTimeline(planet);
 
   info.style.display = 'block';
   info.style.transform = 'translateY(0)';
   isInfoShown = true;
+  controls.enabled = false; // Disable orbit controls
   animateCanvasHeight(50, 500, () => {
     // after animation
   });
@@ -306,6 +315,7 @@ function closeInfo() {
   info.style.transform = 'translateY(100%)';
   accelerationOrbit = 1;
   isInfoShown = false;
+  controls.enabled = true; // Re-enable orbit controls
   animateCanvasHeight(100, 500, () => {
     // after animation
   });
@@ -847,7 +857,8 @@ function animate() {
   // Reset all outlines
   outlinePass.selectedObjects = [];
 
-  if (intersects.length > 0) {
+  // Only show outlines if popup is not open
+  if (intersects.length > 0 && !isInfoShown) {
     const intersectedObject = intersects[0].object;
 
     // If the intersected object is an atmosphere, find the corresponding planet
@@ -899,6 +910,184 @@ animate();
 
 window.addEventListener('mousemove', onMouseMove, false);
 window.addEventListener('mousedown', onDocumentMouseDown, false);
+// ******  TIMELINE FUNCTIONS  ******
+function loadTimeline(planetName) {
+  const timeline = document.getElementById('timeline');
+  timeline.innerHTML = '';
+
+  // Find all entries for this planet
+  // The JSON structure has the planet name in the first column, then all following rows
+  // with null in first column belong to that planet until the next planet name appears
+  const planetEntries = [];
+  let currentPlanet = null;
+  
+  for (let i = 0; i < sistemaSolareData.length; i++) {
+    const entry = sistemaSolareData[i];
+    const firstColumn = entry['In what ways the perception of the solar system evolved over the course of human history, from ancient cosmologies to modern science?  Question more specific  (timeline)'];
+    
+    // Check if this row starts a new planet section
+    if (firstColumn && firstColumn !== 'null') {
+      currentPlanet = firstColumn;
+    }
+    
+    // Collect entries for the target planet
+    if (currentPlanet && currentPlanet.toLowerCase() === planetName.toLowerCase()) {
+      planetEntries.push(entry);
+    }
+    
+    // Stop when we reach the next planet (after collecting all images)
+    if (currentPlanet && currentPlanet.toLowerCase() !== planetName.toLowerCase() && planetEntries.length > 0) {
+      break;
+    }
+  }
+
+  // Collect all valid images first
+  const allImages = [];
+  planetEntries.slice(1).forEach((entry, index) => {
+    const imageColumns = ['Unnamed: 7', 'Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10', 'Unnamed: 11'];
+    imageColumns.forEach(column => {
+      const imageUrl = entry[column];
+      if (imageUrl && imageUrl !== null && imageUrl !== 'null' && imageUrl.startsWith('http')) {
+        allImages.push({ entry, imageUrl });
+      }
+    });
+  });
+
+  // Calculate optimal width based on available space
+  const containerWidth = timeline.offsetWidth;
+  const totalImages = allImages.length;
+  const itemWidth = Math.max(40, Math.floor(containerWidth / totalImages));
+
+  // Create timeline items
+  allImages.forEach(({ entry, imageUrl }, index) => {
+    const timelineItem = document.createElement('div');
+    timelineItem.className = 'timeline-item';
+    
+    // Create varying heights for visual interest (like books on a shelf)
+    const minHeight = 120;
+    const maxHeight = 280;
+    const height = minHeight + Math.random() * (maxHeight - minHeight);
+    timelineItem.style.height = height + 'px';
+    timelineItem.style.flexGrow = '1';
+    timelineItem.style.flexBasis = itemWidth + 'px';
+    
+    const img = document.createElement('img');
+    img.src = imageUrl;
+    img.alt = entry['Unnamed: 1'] || 'Historical image';
+    img.onerror = function() {
+      this.parentElement.style.display = 'none';
+    };
+    
+    timelineItem.appendChild(img);
+    
+    // Add hover event to show preview
+    timelineItem.addEventListener('mouseenter', () => showImagePreview(entry, imageUrl, timelineItem));
+    timelineItem.addEventListener('mouseleave', hideImagePreview);
+    
+    timeline.appendChild(timelineItem);
+  });
+}
+
+let currentPreviewElement = null;
+let hideTimeout = null;
+let currentHiddenItem = null;
+
+function showImagePreview(entry, imageUrl, itemElement) {
+  // Clear any pending hide
+  if (hideTimeout) {
+    clearTimeout(hideTimeout);
+    hideTimeout = null;
+  }
+  
+  // If same item, don't recreate
+  if (currentPreviewElement && currentPreviewElement.previousSibling === itemElement) {
+    return;
+  }
+  
+  // Hide any existing preview immediately
+  if (currentPreviewElement && currentPreviewElement.parentNode) {
+    currentPreviewElement.parentNode.removeChild(currentPreviewElement);
+    currentPreviewElement = null;
+  }
+  
+  // Show previously hidden item
+  if (currentHiddenItem) {
+    currentHiddenItem.style.display = '';
+    currentHiddenItem = null;
+  }
+  
+  // Hide the current item
+  itemElement.style.display = 'none';
+  currentHiddenItem = itemElement;
+  
+  const timeline = document.getElementById('timeline');
+  
+  // Create new preview element
+  const preview = document.createElement('div');
+  preview.className = 'timeline-image-preview active';
+  preview.id = 'activePreview';
+  
+  // Create image
+  const img = document.createElement('img');
+  img.src = imageUrl;
+  img.alt = entry['Unnamed: 1'] || 'Preview';
+  
+  // Create info
+  const infoDiv = document.createElement('div');
+  infoDiv.className = 'preview-info';
+  
+  let infoHTML = '';
+  if (entry['Unnamed: 1']) infoHTML += `<p><strong>${entry['Unnamed: 1']}</strong></p>`;
+  if (entry['Unnamed: 3']) infoHTML += `<p>${entry['Unnamed: 3']}</p>`;
+  
+  infoDiv.innerHTML = infoHTML;
+  
+  preview.appendChild(img);
+  preview.appendChild(infoDiv);
+  
+  // Insert preview right after the hovered item
+  itemElement.parentNode.insertBefore(preview, itemElement.nextSibling);
+  
+  currentPreviewElement = preview;
+  
+  // Add event listeners to preview to keep it visible
+  preview.addEventListener('mouseenter', () => {
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+      hideTimeout = null;
+    }
+  });
+  
+  preview.addEventListener('mouseleave', () => {
+    hideImagePreview();
+  });
+}
+
+function hideImagePreview() {
+  if (hideTimeout) {
+    clearTimeout(hideTimeout);
+  }
+  
+  hideTimeout = setTimeout(() => {
+    if (currentPreviewElement && currentPreviewElement.parentNode) {
+      currentPreviewElement.classList.remove('active');
+      setTimeout(() => {
+        if (currentPreviewElement && currentPreviewElement.parentNode) {
+          currentPreviewElement.parentNode.removeChild(currentPreviewElement);
+        }
+        currentPreviewElement = null;
+        // Show the hidden item
+        if (currentHiddenItem) {
+          currentHiddenItem.style.display = '';
+          currentHiddenItem = null;
+        }
+      }, 300);
+    }
+  }, 100);
+}
+
+
+
 window.addEventListener('resize', function () {
   if (isInfoShown) {
     renderer.domElement.style.height = '50%';
