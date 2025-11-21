@@ -13,18 +13,22 @@ html, body {
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 50%;
+    height: 60%;
     z-index: 10;
     transform: translateY(100%);
     transition: transform 0.5s ease;
     border-top: 0.5px solid rgba(102, 102, 102, 0.5);
+    background: rgba(0, 0, 0, 0.95);
 }
 
 .planet-info-content {
     padding: 20px;
     color: white;
     font-family: 'Arial', sans-serif;
-    overflow-y: auto; /* For scrolling */
+    overflow-y: auto;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 .close-btn {
@@ -40,8 +44,52 @@ html, body {
     cursor: pointer;
 }
 
+.planet-header {
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+    min-height: 200px;
+    overflow: hidden;
+}
+
 h2 {
-    color: lightyellow; 
+    color: yellow;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.planet-details {
+    margin-top: 7px;
+    flex: 1;
+}
+
+.planet-details table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 16px;
+    table-layout: fixed;
+}
+
+.planet-details td {
+    padding: 4px 12px 4px 0;
+    vertical-align: top;
+    border-bottom: solid 0.1px white;
+}
+
+.planet-details td:first-child {
+    color: yellow;
+    font-weight: bold;
+    min-width: 100px;
+    width: 100px;
+    text-align: left;
+}
+
+.planet-details td:last-child {
+    color: white;
+    word-wrap: break-word;
+    text-align: left;
 }
 
 p {
@@ -51,14 +99,14 @@ p {
 
 /* Timeline styles */
 .timeline-container {
-    margin-top: 30px;
     width: 100%;
-    height: 100%;
+    max-width: 100%;
+    flex: 1;
     position: relative;
-    margin-left: -20px;
-    margin-right: -20px;
-    padding: 0 20px;
-    overflow: visible;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
 }
 
 .timeline-container h3 {
@@ -68,10 +116,11 @@ p {
 
 .timeline {
     display: flex;
-    overflow: visible;
+    overflow: hidden;
     padding: 0;
     align-items: center;
-    height: 300px;
+    height: 100%;
+    max-height: 300px;
     position: relative;
     justify-content: space-between;
     flex-wrap: nowrap;
@@ -145,12 +194,13 @@ p {
 .timeline-image-preview.active {
     width: 300px;
     height: auto;
-    max-height: 100%;
-    min-height: 200px;
+    max-height: 200px;
+    min-height: 150px;
+    max-width: 300px;
 }
 
 .timeline-image-preview img {
-    width: 300px;
+    width: 400px;
     height: 300px;
     object-fit: contain;
     display: block;
@@ -160,18 +210,55 @@ p {
 
 .preview-info {
     color: white;
-    font-size: 10px;
-    line-height: 1.4;
-    padding: 10px 15px;
+    font-size: 11px;
+    line-height: 1.6;
+    padding: 15px;
     background: rgba(0, 0, 0, 0.95);
-    text-align: center;
+    text-align: left;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.preview-info::-webkit-scrollbar {
+    width: 6px;
+}
+
+.preview-info::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.preview-info::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.preview-info::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
 }
 
 .preview-info p {
-    margin: 3px 0;
+    margin: 6px 0;
+    word-wrap: break-word;
+}
+
+.preview-info .preview-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: lightyellow;
+    margin-bottom: 10px;
+}
+
+.preview-info .preview-notes {
+    font-size: 10px;
+    color: #ddd;
+    margin-top: 10px;
+    font-style: italic;
 }
 
 .preview-info strong {
-    color: white;
+    color: lightyellow;
     font-weight: bold;
+    display: inline-block;
+    min-width: 50px;
 }

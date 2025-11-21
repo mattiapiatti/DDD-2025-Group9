@@ -292,8 +292,12 @@ function animateCameraAdjustmentReverse(duration) {
 function startPlanetInfoAnimation(planet) {
   var info = document.getElementById('planetInfo');
   var name = document.getElementById('planetName');
+  var details = document.getElementById('planetDetails');
 
   name.innerText = planet;
+
+  // Initialize with placeholder
+  updatePlanetDetails(null);
 
   // Load timeline
   loadTimeline(planet);
@@ -910,6 +914,51 @@ animate();
 
 window.addEventListener('mousemove', onMouseMove, false);
 window.addEventListener('mousedown', onDocumentMouseDown, false);
+// ******  PLANET DETAILS FUNCTION  ******
+function updatePlanetDetails(entry) {
+  const details = document.getElementById('planetDetails');
+  
+  if (!entry) {
+    details.innerHTML = '<div style="color: #999; font-style: italic;">Hover over an image to see details</div>';
+    return;
+  }
+
+  let tableHTML = '<table>';
+  
+  // Name (Unnamed: 1)
+  if (entry['Unnamed: 1']) {
+    tableHTML += `<tr><td>Name:</td><td>${entry['Unnamed: 1']}</td></tr>`;
+  }
+  
+  // Perception (Unnamed: 2)
+  if (entry['Unnamed: 2']) {
+    tableHTML += `<tr><td>Perception:</td><td>${entry['Unnamed: 2']}</td></tr>`;
+  }
+  
+  // Date (Unnamed: 3)
+  if (entry['Unnamed: 3']) {
+    tableHTML += `<tr><td>Date:</td><td>${entry['Unnamed: 3']}</td></tr>`;
+  }
+  
+  // Who (Unnamed: 4)
+  if (entry['Unnamed: 4']) {
+    tableHTML += `<tr><td>Who:</td><td>${entry['Unnamed: 4']}</td></tr>`;
+  }
+  
+  // Technique (Unnamed: 5)
+  if (entry['Unnamed: 5']) {
+    tableHTML += `<tr><td>Technique:</td><td>${entry['Unnamed: 5']}</td></tr>`;
+  }
+  
+  // Key Notes and Discoveries (Unnamed: 6)
+  if (entry['Unnamed: 6']) {
+    tableHTML += `<tr><td>Key Notes:</td><td>${entry['Unnamed: 6']}</td></tr>`;
+  }
+  
+  tableHTML += '</table>';
+  details.innerHTML = tableHTML;
+}
+
 // ******  TIMELINE FUNCTIONS  ******
 function loadTimeline(planetName) {
   const timeline = document.getElementById('timeline');
@@ -980,8 +1029,11 @@ function loadTimeline(planetName) {
     
     timelineItem.appendChild(img);
     
-    // Add hover event to show preview
-    timelineItem.addEventListener('mouseenter', () => showImagePreview(entry, imageUrl, timelineItem));
+    // Add hover event to show preview and update details
+    timelineItem.addEventListener('mouseenter', () => {
+      updatePlanetDetails(entry);
+      showImagePreview(entry, imageUrl, timelineItem);
+    });
     timelineItem.addEventListener('mouseleave', hideImagePreview);
     
     timeline.appendChild(timelineItem);
@@ -993,6 +1045,9 @@ let hideTimeout = null;
 let currentHiddenItem = null;
 
 function showImagePreview(entry, imageUrl, itemElement) {
+  // Update planet details with current entry
+  updatePlanetDetails(entry);
+  
   // Clear any pending hide
   if (hideTimeout) {
     clearTimeout(hideTimeout);
@@ -1037,8 +1092,6 @@ function showImagePreview(entry, imageUrl, itemElement) {
   infoDiv.className = 'preview-info';
   
   let infoHTML = '';
-  if (entry['Unnamed: 1']) infoHTML += `<p><strong>${entry['Unnamed: 1']}</strong></p>`;
-  if (entry['Unnamed: 3']) infoHTML += `<p>${entry['Unnamed: 3']}</p>`;
   
   infoDiv.innerHTML = infoHTML;
   
@@ -1069,6 +1122,9 @@ function hideImagePreview() {
   }
   
   hideTimeout = setTimeout(() => {
+    // Reset planet details to placeholder
+    updatePlanetDetails(null);
+    
     if (currentPreviewElement && currentPreviewElement.parentNode) {
       currentPreviewElement.classList.remove('active');
       setTimeout(() => {
