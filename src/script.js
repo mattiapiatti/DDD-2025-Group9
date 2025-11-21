@@ -525,8 +525,28 @@ function getPlanetImagesFromJSON(planetName) {
   return allImages;
 }
 
+// ******  GET PLANET COLOR PROFILE  ******
+function getPlanetColorProfile(planetName) {
+  const colorProfiles = {
+    'Mercury': { saturation: 0.4, brightness: 0.9, tint: [160, 140, 120] },
+    'Venus': { saturation: 0.5, brightness: 1.0, tint: [255, 220, 140] },
+    'Earth': { saturation: 0.7, brightness: 1.1, tint: [50, 150, 255] },
+    'Mars': { saturation: 0.8, brightness: 1.0, tint: [255, 80, 40] },
+    'Jupiter': { saturation: 0.6, brightness: 1.0, tint: [230, 180, 120] },
+    'Saturn': { saturation: 0.5, brightness: 1.0, tint: [250, 230, 170] },
+    'Uranus': { saturation: 0.7, brightness: 1.0, tint: [100, 220, 255] },
+    'Neptune': { saturation: 0.8, brightness: 1.0, tint: [40, 100, 255] },
+    'Pluto': { saturation: 0.4, brightness: 0.85, tint: [200, 180, 170] }
+  };
+  
+  return colorProfiles[planetName] || { saturation: 0.4, brightness: 0.9, tint: [200, 200, 200] };
+}
+
 // ******  APPLY PLANET-LIKE FILTERS TO CANVAS  ******
-function applyPlanetFilters(ctx, size) {
+function applyPlanetFilters(ctx, size, planetName) {
+  // Get planet color profile
+  const colorProfile = getPlanetColorProfile(planetName);
+  
   // Get image data
   const imageData = ctx.getImageData(0, 0, size, size);
   const data = imageData.data;
@@ -552,16 +572,33 @@ function applyPlanetFilters(ctx, size) {
       // Apply spherical shading
       const sphereFactor = Math.cos(normalizedDistance * Math.PI / 2);
       
-      // Reduce saturation slightly for more realistic look
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const gray = (r + g + b) / 3;
-      const desaturation = 0.3;
+      // Get original colors
+      let r = data[i];
+      let g = data[i + 1];
+      let b = data[i + 2];
       
-      data[i] = (r * (1 - desaturation) + gray * desaturation) * vignette * (0.7 + sphereFactor * 0.3);
-      data[i + 1] = (g * (1 - desaturation) + gray * desaturation) * vignette * (0.7 + sphereFactor * 0.3);
-      data[i + 2] = (b * (1 - desaturation) + gray * desaturation) * vignette * (0.7 + sphereFactor * 0.3);
+      // Convert to grayscale first
+      const gray = (r * 0.299 + g * 0.587 + b * 0.114);
+      
+      // Apply subtle planet-specific color tint (molto ridotto per vedere meglio le immagini)
+      const tintStrength = 0.3;
+      r = gray * (1 - tintStrength) + colorProfile.tint[0] * tintStrength;
+      g = gray * (1 - tintStrength) + colorProfile.tint[1] * tintStrength;
+      b = gray * (1 - tintStrength) + colorProfile.tint[2] * tintStrength;
+      
+      // Adjust saturation based on planet
+      const finalGray = (r + g + b) / 3;
+      const saturation = colorProfile.saturation * 1.5;
+      r = finalGray + (r - finalGray) * saturation;
+      g = finalGray + (g - finalGray) * saturation;
+      b = finalGray + (b - finalGray) * saturation;
+      
+      // Apply brightness and lighting (aumentato per maggiore visibilità)
+      const lighting = vignette * (0.9 + sphereFactor * 0.2) * colorProfile.brightness * 1.2;
+      
+      data[i] = Math.min(255, r * lighting);
+      data[i + 1] = Math.min(255, g * lighting);
+      data[i + 2] = Math.min(255, b * lighting);
     }
   }
   
@@ -593,42 +630,67 @@ function createMosaicTexture(planetName, planet) {
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
+  
+  // Fill canvas with base color first
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, size, size);
 
-  // Calculate grid dimensions
+  // Calculate grid dimensions - always create a full grid
   const cols = Math.ceil(Math.sqrt(images.length));
   const rows = Math.ceil(images.length / cols);
+  const totalCells = cols * rows;
   const cellWidth = size / cols;
   const cellHeight = size / rows;
 
   let loadedImages = 0;
-  const totalImages = Math.min(images.length, cols * rows);
+  const totalImages = images.length;
+  const loadedImgArray = [];
 
-  images.slice(0, totalImages).forEach((url, index) => {
+  images.forEach((url, index) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     
     img.onload = () => {
-      const col = index % cols;
-      const row = Math.floor(index / cols);
-      const x = col * cellWidth;
-      const y = row * cellHeight;
-      
-      // Draw image in its cell with slight opacity to blend
-      ctx.globalAlpha = 0.9;
-      ctx.drawImage(img, x, y, cellWidth, cellHeight);
-      ctx.globalAlpha = 1.0;
-      
+      loadedImgArray.push(img);
       loadedImages++;
       
-      // When all images are loaded, apply filters and update the planet texture
+      // When all images are loaded, draw them to fill the entire grid
       if (loadedImages === totalImages) {
-        // Apply planet-like filters
-        applyPlanetFilters(ctx, size);
+        // Fill all cells by repeating images cyclically
+        for (let i = 0; i < totalCells; i++) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = col * cellWidth;
+          const y = row * cellHeight;
+          
+          // Use images cyclically to ensure no empty cells
+          const imgIndex = i % loadedImgArray.length;
+          const imgToDraw = loadedImgArray[imgIndex];
+          
+          // Draw image stretched to fill cell completely
+          ctx.globalAlpha = 1.0;
+          ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
+        }
+        // Draw visible borders around each cell to make mosaic more visible
+        ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+        ctx.lineWidth = 10;
+        for (let i = 0; i < totalCells; i++) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = col * cellWidth;
+          const y = row * cellHeight;
+          ctx.strokeRect(x, y, cellWidth, cellHeight);
+        }
+        
+        // Apply planet-like filters with planet-specific color
+        applyPlanetFilters(ctx, size, planetName);
         
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
+        // Ripeti la texture 2 volte per coprire meglio la sfera
+        texture.repeat.set(2, 2);
         
         // Handle Earth's shader material specially
         if (planetName === 'Earth') {
@@ -637,8 +699,8 @@ function createMosaicTexture(planetName, planet) {
             map: texture,
             shininess: 5,
             specular: 0x222222,
-            transparent: true,
-            opacity: 0.85
+            transparent: false,
+            opacity: 1.0
           });
           mosaicMaterial.userData = planet.material.userData;
           planet.material = mosaicMaterial;
@@ -649,32 +711,46 @@ function createMosaicTexture(planetName, planet) {
           planet.material.map = texture;
           planet.material.shininess = 5;
           planet.material.specular = new THREE.Color(0x222222);
-          planet.material.transparent = true;
-          planet.material.opacity = 0.85;
+          planet.material.transparent = false;
+          planet.material.opacity = 1.0;
           planet.material.needsUpdate = true;
         }
       }
     };
     
     img.onerror = () => {
+      console.warn(`Failed to load image: ${url}`);
       loadedImages++;
-      console.log(`Failed to load image: ${url}`);
       
       if (loadedImages === totalImages) {
-        applyPlanetFilters(ctx, size);
+        // Draw visible borders even on error
+        ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+        ctx.lineWidth = 10;
+        for (let i = 0; i < totalCells; i++) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = col * cellWidth;
+          const y = row * cellHeight;
+          ctx.strokeRect(x, y, cellWidth, cellHeight);
+        }
+        
+        // Apply filters even if some images failed
+        applyPlanetFilters(ctx, size, planetName);
         
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
+        // Ripeti la texture 2 volte per coprire meglio la sfera
+        texture.repeat.set(2, 2);
         
         if (planetName === 'Earth') {
           const mosaicMaterial = new THREE.MeshPhongMaterial({
             map: texture,
             shininess: 5,
             specular: 0x222222,
-            transparent: true,
-            opacity: 0.85
+            transparent: false,
+            opacity: 1.0
           });
           mosaicMaterial.userData = planet.material.userData;
           planet.material = mosaicMaterial;
@@ -682,8 +758,8 @@ function createMosaicTexture(planetName, planet) {
           planet.material.map = texture;
           planet.material.shininess = 5;
           planet.material.specular = new THREE.Color(0x222222);
-          planet.material.transparent = true;
-          planet.material.opacity = 0.85;
+          planet.material.transparent = false;
+          planet.material.opacity = 1.0;
           planet.material.needsUpdate = true;
         }
       }
@@ -1217,38 +1293,64 @@ function preloadMosaicTextures() {
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
+    
+    // Fill canvas with base color first
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, size, size);
 
     const cols = Math.ceil(Math.sqrt(images.length));
     const rows = Math.ceil(images.length / cols);
+    const totalCells = cols * rows;
     const cellWidth = size / cols;
     const cellHeight = size / rows;
 
     let loadedImages = 0;
-    const totalImages = Math.min(images.length, cols * rows);
+    const totalImages = images.length;
+    const loadedImgArray = [];
 
-    images.slice(0, totalImages).forEach((url, index) => {
+    images.forEach((url, index) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       
       img.onload = () => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-        const x = col * cellWidth;
-        const y = row * cellHeight;
-        
-        ctx.globalAlpha = 0.9;
-        ctx.drawImage(img, x, y, cellWidth, cellHeight);
-        ctx.globalAlpha = 1.0;
-        
+        loadedImgArray.push(img);
         loadedImages++;
         
         if (loadedImages === totalImages) {
-          applyPlanetFilters(ctx, size);
+          // Fill all cells by repeating images cyclically
+          for (let i = 0; i < totalCells; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = col * cellWidth;
+            const y = row * cellHeight;
+            
+            // Use images cyclically to ensure no empty cells
+            const imgIndex = i % loadedImgArray.length;
+            const imgToDraw = loadedImgArray[imgIndex];
+            
+            ctx.globalAlpha = 1.0;
+            ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
+          }
+          
+          // Draw visible borders around each cell
+          ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+          ctx.lineWidth = 10;
+          for (let i = 0; i < totalCells; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = col * cellWidth;
+            const y = row * cellHeight;
+            ctx.strokeRect(x, y, cellWidth, cellHeight);
+          }
+          
+          applyPlanetFilters(ctx, size, name);
           
           const texture = new THREE.CanvasTexture(canvas);
           texture.needsUpdate = true;
           texture.wrapS = THREE.RepeatWrapping;
           texture.wrapT = THREE.RepeatWrapping;
+          // Ripeti la texture 2 volte per coprire meglio la sfera
+          texture.repeat.set(2, 2);
           
           preloadedMosaicTextures.set(name, texture);
           loadedCount++;
@@ -1262,12 +1364,39 @@ function preloadMosaicTextures() {
       img.onerror = () => {
         loadedImages++;
         if (loadedImages === totalImages) {
-          applyPlanetFilters(ctx, size);
+          // Fill remaining cells with loaded images
+          for (let i = 0; i < totalCells && loadedImgArray.length > 0; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = col * cellWidth;
+            const y = row * cellHeight;
+            
+            const imgIndex = i % loadedImgArray.length;
+            const imgToDraw = loadedImgArray[imgIndex];
+            
+            ctx.globalAlpha = 1.0;
+            ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
+          }
+          
+          // Draw visible borders even on error
+          ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+          ctx.lineWidth = 10;
+          for (let i = 0; i < totalCells; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = col * cellWidth;
+            const y = row * cellHeight;
+            ctx.strokeRect(x, y, cellWidth, cellHeight);
+          }
+          
+          applyPlanetFilters(ctx, size, name);
           
           const texture = new THREE.CanvasTexture(canvas);
           texture.needsUpdate = true;
           texture.wrapS = THREE.RepeatWrapping;
           texture.wrapT = THREE.RepeatWrapping;
+          // Ripeti la texture 2 volte per coprire meglio la sfera
+          texture.repeat.set(2, 2);
           
           preloadedMosaicTextures.set(name, texture);
           loadedCount++;
@@ -1295,8 +1424,8 @@ function applyPreloadedTextures() {
         map: texture,
         shininess: 5,
         specular: 0x222222,
-        transparent: true,
-        opacity: 0.85
+        transparent: false,
+        opacity: 1.0
       });
       mosaicMaterial.userData = planetObj.planet.material.userData;
       planetObj.planet.material = mosaicMaterial;
@@ -1304,8 +1433,8 @@ function applyPreloadedTextures() {
       planetObj.planet.material.map = texture;
       planetObj.planet.material.shininess = 5;
       planetObj.planet.material.specular = new THREE.Color(0x222222);
-      planetObj.planet.material.transparent = true;
-      planetObj.planet.material.opacity = 0.85;
+      planetObj.planet.material.transparent = false;
+      planetObj.planet.material.opacity = 1.0;
       planetObj.planet.material.needsUpdate = true;
     }
   });
