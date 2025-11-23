@@ -34,6 +34,7 @@ import uranusTexture from '/images/uranus.jpg';
 import uraRingTexture from '/images/uranus_ring.png';
 import neptuneTexture from '/images/neptune.jpg';
 import plutoTexture from '/images/plutomap.jpg';
+import sistemaSolareData from './json/sistema_solare_1.json';
 
 // ******  SETUP  ******
 console.log("Create the scene");
@@ -55,6 +56,7 @@ renderer.domElement.style.left = '0';
 renderer.domElement.style.display = 'block';
 renderer.domElement.style.backgroundColor = '#000';
 renderer.domElement.style.zIndex = '0';
+renderer.domElement.style.opacity = '0';
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
 console.log("Create an orbit control");
@@ -62,6 +64,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.75;
 controls.screenSpacePanning = false;
+controls.enabled = true;
 
 console.log("Set up texture loader");
 const cubeTextureLoader = new THREE.CubeTextureLoader();
@@ -127,6 +130,11 @@ let offset;
 function onDocumentMouseDown(event) {
   event.preventDefault();
 
+  // Prevent planet selection if popup is open
+  if (isInfoShown) {
+    return;
+  }
+
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
@@ -164,6 +172,9 @@ function onDocumentMouseDown(event) {
       // Start animations
       startPlanetInfoAnimation(selectedPlanet.name);
       animateCameraAdjustment(500);
+      
+      // Restore original textures when zooming on a planet
+      restoreAllOriginalTextures();
     }
   }
 }
@@ -288,11 +299,17 @@ function startPlanetInfoAnimation(planet) {
   var details = document.getElementById('planetDetails');
 
   name.innerText = planet;
-  details.innerText = `Radius: ${planetData[planet].radius}\nTilt: ${planetData[planet].tilt}\nRotation: ${planetData[planet].rotation}\nOrbit: ${planetData[planet].orbit}\nDistance: ${planetData[planet].distance}\nMoons: ${planetData[planet].moons}\nInfo: ${planetData[planet].info}`;
+
+  // Initialize with placeholder
+  updatePlanetDetails(null);
+
+  // Load timeline
+  loadTimeline(planet);
 
   info.style.display = 'block';
   info.style.transform = 'translateY(0)';
   isInfoShown = true;
+  controls.enabled = false; // Disable orbit controls
   animateCanvasHeight(50, 500, () => {
     // after animation
   });
@@ -306,6 +323,7 @@ function closeInfo() {
   info.style.transform = 'translateY(100%)';
   accelerationOrbit = 1;
   isInfoShown = false;
+  controls.enabled = true; // Re-enable orbit controls
   animateCanvasHeight(100, 500, () => {
     // after animation
   });
@@ -315,6 +333,16 @@ function closeInfo() {
   // Reset camera to original position and target
   zoomOutTargetPosition.copy(originalCameraPosition);
   controls.target.set(0, 0, 0);
+  
+  // Apply mosaic textures when returning to full solar system view
+  setTimeout(() => {
+    if (mosaicTexturesReady) {
+      applyPreloadedTextures();
+    } else {
+      applyMosaicTextures();
+    }
+  }, 300);
+  
   setTimeout(() => {
     info.style.display = 'none';
   }, 500);
@@ -364,6 +392,13 @@ function createPlanet(planetName, size, position, tilt, texture, bump, ring, atm
       map: loadTexture.load(texture)
     });
   }
+  
+  // Store original texture info for later reference
+  material.userData = {
+    originalTexture: texture,
+    originalBump: bump,
+    planetName: planetName
+  };
 
   const name = planetName;
   const geometry = new THREE.SphereGeometry(size, 32, 20);
@@ -449,7 +484,332 @@ function createPlanet(planetName, size, position, tilt, texture, bump, ring, atm
   //add planet system to planet3d object and to the scene
   planet3d.add(planetSystem);
   scene.add(planet3d);
-  return { name, planet, planet3d, Atmosphere, moons, planetSystem, Ring };
+  return { name, planet, planet3d, Atmosphere, moons, planetSystem, Ring, originalMaterial: material };
+}
+
+// ******  FUNCTION TO LOAD PLANET IMAGES FROM JSON  ******
+function getPlanetImagesFromJSON(planetName) {
+  const planetEntries = [];
+  let currentPlanet = null;
+  
+  // Find all entries for this planet
+  for (let i = 0; i < sistemaSolareData.length; i++) {
+    const entry = sistemaSolareData[i];
+    const firstColumn = entry['In what ways the perception of the solar system evolved over the course of human history, from ancient cosmologies to modern science?  Question more specific  (timeline)'];
+    
+    if (firstColumn && firstColumn !== 'null') {
+      currentPlanet = firstColumn;
+    }
+    
+    if (currentPlanet && currentPlanet.toLowerCase() === planetName.toLowerCase()) {
+      planetEntries.push(entry);
+    }
+    
+    if (currentPlanet && currentPlanet.toLowerCase() !== planetName.toLowerCase() && planetEntries.length > 0) {
+      break;
+    }
+  }
+
+  // Collect all valid images
+  const allImages = [];
+  planetEntries.slice(1).forEach((entry) => {
+    const imageColumns = ['Unnamed: 7', 'Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10', 'Unnamed: 11'];
+    imageColumns.forEach(column => {
+      const imageUrl = entry[column];
+      if (imageUrl && imageUrl !== null && imageUrl !== 'null' && imageUrl.startsWith('http')) {
+        allImages.push(imageUrl);
+      }
+    });
+  });
+
+  return allImages;
+}
+
+// ******  GET PLANET COLOR PROFILE  ******
+function getPlanetColorProfile(planetName) {
+  const colorProfiles = {
+    'Mercury': { saturation: 0.4, brightness: 0.9, tint: [160, 140, 120] },
+    'Venus': { saturation: 0.5, brightness: 1.0, tint: [255, 220, 140] },
+    'Earth': { saturation: 0.7, brightness: 1.1, tint: [50, 150, 255] },
+    'Mars': { saturation: 0.8, brightness: 1.0, tint: [255, 80, 40] },
+    'Jupiter': { saturation: 0.6, brightness: 1.0, tint: [230, 180, 120] },
+    'Saturn': { saturation: 0.5, brightness: 1.0, tint: [250, 230, 170] },
+    'Uranus': { saturation: 0.7, brightness: 1.0, tint: [100, 220, 255] },
+    'Neptune': { saturation: 0.8, brightness: 1.0, tint: [40, 100, 255] },
+    'Pluto': { saturation: 0.4, brightness: 0.85, tint: [200, 180, 170] }
+  };
+  
+  return colorProfiles[planetName] || { saturation: 0.4, brightness: 0.9, tint: [200, 200, 200] };
+}
+
+// ******  APPLY PLANET-LIKE FILTERS TO CANVAS  ******
+function applyPlanetFilters(ctx, size, planetName) {
+  // Get planet color profile
+  const colorProfile = getPlanetColorProfile(planetName);
+  
+  // Get image data
+  const imageData = ctx.getImageData(0, 0, size, size);
+  const data = imageData.data;
+  
+  // Apply color adjustments and vignette effect
+  const centerX = size / 2;
+  const centerY = size / 2;
+  const maxRadius = size / 2;
+  
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      
+      // Calculate distance from center
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const normalizedDistance = distance / maxRadius;
+      
+      // Apply vignette effect (darker at edges)
+      const vignette = Math.max(0, 1 - Math.pow(normalizedDistance, 1.5) * 0.4);
+      
+      // Apply spherical shading
+      const sphereFactor = Math.cos(normalizedDistance * Math.PI / 2);
+      
+      // Get original colors
+      let r = data[i];
+      let g = data[i + 1];
+      let b = data[i + 2];
+      
+      // Convert to grayscale first
+      const gray = (r * 0.299 + g * 0.587 + b * 0.114);
+      
+      // Apply subtle planet-specific color tint (molto ridotto per vedere meglio le immagini)
+      const tintStrength = 0.3;
+      r = gray * (1 - tintStrength) + colorProfile.tint[0] * tintStrength;
+      g = gray * (1 - tintStrength) + colorProfile.tint[1] * tintStrength;
+      b = gray * (1 - tintStrength) + colorProfile.tint[2] * tintStrength;
+      
+      // Adjust saturation based on planet
+      const finalGray = (r + g + b) / 3;
+      const saturation = colorProfile.saturation * 1.5;
+      r = finalGray + (r - finalGray) * saturation;
+      g = finalGray + (g - finalGray) * saturation;
+      b = finalGray + (b - finalGray) * saturation;
+      
+      // Apply brightness and lighting (aumentato per maggiore visibilità)
+      const lighting = vignette * (0.9 + sphereFactor * 0.2) * colorProfile.brightness * 1.2;
+      
+      data[i] = Math.min(255, r * lighting);
+      data[i + 1] = Math.min(255, g * lighting);
+      data[i + 2] = Math.min(255, b * lighting);
+    }
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+  
+  // Apply subtle blur at edges
+  ctx.globalCompositeOperation = 'destination-in';
+  const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(0.7, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0.95)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// ******  CREATE MOSAIC TEXTURE FROM IMAGES  ******
+function createMosaicTexture(planetName, planet) {
+  const images = getPlanetImagesFromJSON(planetName);
+  
+  if (images.length === 0) {
+    console.log(`No images found for ${planetName}`);
+    return;
+  }
+
+  // Create a canvas to combine multiple images
+  const canvas = document.createElement('canvas');
+  const size = 2048; // Texture size
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  
+  // Fill canvas with base color first
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, size, size);
+
+  // Calculate grid dimensions - always create a full grid
+  const cols = Math.ceil(Math.sqrt(images.length));
+  const rows = Math.ceil(images.length / cols);
+  const totalCells = cols * rows;
+  const cellWidth = size / cols;
+  const cellHeight = size / rows;
+
+  let loadedImages = 0;
+  const totalImages = images.length;
+  const loadedImgArray = [];
+
+  images.forEach((url, index) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      loadedImgArray.push(img);
+      loadedImages++;
+      
+      // When all images are loaded, draw them to fill the entire grid
+      if (loadedImages === totalImages) {
+        // Fill all cells by repeating images cyclically
+        for (let i = 0; i < totalCells; i++) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = col * cellWidth;
+          const y = row * cellHeight;
+          
+          // Use images cyclically to ensure no empty cells
+          const imgIndex = i % loadedImgArray.length;
+          const imgToDraw = loadedImgArray[imgIndex];
+          
+          // Draw image stretched to fill cell completely
+          ctx.globalAlpha = 1.0;
+          ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
+        }
+        // Draw visible borders around each cell to make mosaic more visible
+        ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+        ctx.lineWidth = 10;
+        for (let i = 0; i < totalCells; i++) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = col * cellWidth;
+          const y = row * cellHeight;
+          ctx.strokeRect(x, y, cellWidth, cellHeight);
+        }
+        
+        // Apply planet-like filters with planet-specific color
+        applyPlanetFilters(ctx, size, planetName);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        // Ripeti la texture 2 volte per coprire meglio la sfera
+        texture.repeat.set(2, 2);
+        
+        // Handle Earth's shader material specially
+        if (planetName === 'Earth') {
+          // Replace Earth's shader material with a simple material showing the mosaic
+          const mosaicMaterial = new THREE.MeshPhongMaterial({
+            map: texture,
+            shininess: 5,
+            specular: 0x222222,
+            transparent: false,
+            opacity: 1.0
+          });
+          mosaicMaterial.userData = planet.material.userData;
+          planet.material = mosaicMaterial;
+        } else if (planet.material.userData.originalTexture instanceof THREE.Material) {
+          // For other shader materials
+          console.log(`Cannot apply mosaic to shader material for ${planetName}`);
+        } else {
+          planet.material.map = texture;
+          planet.material.shininess = 5;
+          planet.material.specular = new THREE.Color(0x222222);
+          planet.material.transparent = false;
+          planet.material.opacity = 1.0;
+          planet.material.needsUpdate = true;
+        }
+      }
+    };
+    
+    img.onerror = () => {
+      console.warn(`Failed to load image: ${url}`);
+      loadedImages++;
+      
+      if (loadedImages === totalImages) {
+        // Draw visible borders even on error
+        ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+        ctx.lineWidth = 10;
+        for (let i = 0; i < totalCells; i++) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = col * cellWidth;
+          const y = row * cellHeight;
+          ctx.strokeRect(x, y, cellWidth, cellHeight);
+        }
+        
+        // Apply filters even if some images failed
+        applyPlanetFilters(ctx, size, planetName);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        // Ripeti la texture 2 volte per coprire meglio la sfera
+        texture.repeat.set(2, 2);
+        
+        if (planetName === 'Earth') {
+          const mosaicMaterial = new THREE.MeshPhongMaterial({
+            map: texture,
+            shininess: 5,
+            specular: 0x222222,
+            transparent: false,
+            opacity: 1.0
+          });
+          mosaicMaterial.userData = planet.material.userData;
+          planet.material = mosaicMaterial;
+        } else if (!(planet.material.userData.originalTexture instanceof THREE.Material)) {
+          planet.material.map = texture;
+          planet.material.shininess = 5;
+          planet.material.specular = new THREE.Color(0x222222);
+          planet.material.transparent = false;
+          planet.material.opacity = 1.0;
+          planet.material.needsUpdate = true;
+        }
+      }
+    };
+    
+    img.src = url;
+  });
+}
+
+// ******  RESTORE ORIGINAL PLANET TEXTURE  ******
+function restoreOriginalTexture(planet, planetObj) {
+  const userData = planet.material.userData;
+  
+  if (!userData || !userData.originalTexture) return;
+  
+  // Special handling for Earth's shader material
+  if (userData.planetName === 'Earth' && userData.originalTexture instanceof THREE.Material) {
+    planet.material = planetObj.originalMaterial;
+    return;
+  }
+  
+  if (userData.originalTexture instanceof THREE.Material) {
+    // Cannot restore other shader materials, skip
+    return;
+  }
+  
+  // Restore original texture
+  planet.material.map = loadTexture.load(userData.originalTexture);
+  if (userData.originalBump) {
+    planet.material.bumpMap = loadTexture.load(userData.originalBump);
+  }
+  planet.material.needsUpdate = true;
+}
+
+// ******  APPLY MOSAIC TEXTURES TO ALL PLANETS  ******
+function applyMosaicTextures() {
+  const planets = [mercury, venus, earth, mars, jupiter, saturn, uranus, neptune, pluto];
+  
+  planets.forEach(planetObj => {
+    createMosaicTexture(planetObj.name, planetObj.planet);
+  });
+}
+
+// ******  RESTORE ALL ORIGINAL TEXTURES  ******
+function restoreAllOriginalTextures() {
+  const planets = [mercury, venus, earth, mars, jupiter, saturn, uranus, neptune, pluto];
+  
+  planets.forEach(planetObj => {
+    restoreOriginalTexture(planetObj.planet, planetObj);
+  });
 }
 
 
@@ -831,12 +1191,12 @@ function animate() {
     });
   }
 
-  // Rotate asteroids
-  asteroids.forEach(asteroid => {
-    asteroid.rotation.y += 0.0001;
-    asteroid.position.x = asteroid.position.x * Math.cos(0.0001 * accelerationOrbit) + asteroid.position.z * Math.sin(0.0001 * accelerationOrbit);
-    asteroid.position.z = asteroid.position.z * Math.cos(0.0001 * accelerationOrbit) - asteroid.position.x * Math.sin(0.0001 * accelerationOrbit);
-  });
+  // // Rotate asteroids
+  // asteroids.forEach(asteroid => {
+  //   asteroid.rotation.y += 0.0001;
+  //   asteroid.position.x = asteroid.position.x * Math.cos(0.0001 * accelerationOrbit) + asteroid.position.z * Math.sin(0.0001 * accelerationOrbit);
+  //   asteroid.position.z = asteroid.position.z * Math.cos(0.0001 * accelerationOrbit) - asteroid.position.x * Math.sin(0.0001 * accelerationOrbit);
+  // });
 
   // ****** OUTLINES ON PLANETS ******
   raycaster.setFromCamera(mouse, camera);
@@ -847,7 +1207,8 @@ function animate() {
   // Reset all outlines
   outlinePass.selectedObjects = [];
 
-  if (intersects.length > 0) {
+  // Only show outlines if popup is not open
+  if (intersects.length > 0 && !isInfoShown) {
     const intersectedObject = intersects[0].object;
 
     // If the intersected object is an atmosphere, find the corresponding planet
@@ -893,12 +1254,448 @@ if (isMovingTowardsPlanet) {
   requestAnimationFrame(animate);
   composer.render();
 }
-loadAsteroids('/asteroids/asteroidPack.glb', 1000, 130, 160);
-loadAsteroids('/asteroids/asteroidPack.glb', 3000, 352, 370);
+// loadAsteroids('/asteroids/asteroidPack.glb', 1000, 130, 160);
+// loadAsteroids('/asteroids/asteroidPack.glb', 3000, 352, 370);
+
+// ******  PRELOAD MOSAIC TEXTURES  ******
+let mosaicTexturesReady = false;
+const preloadedMosaicTextures = new Map();
+
+function preloadMosaicTextures() {
+  const planets = [
+    { name: 'Mercury', obj: mercury },
+    { name: 'Venus', obj: venus },
+    { name: 'Earth', obj: earth },
+    { name: 'Mars', obj: mars },
+    { name: 'Jupiter', obj: jupiter },
+    { name: 'Saturn', obj: saturn },
+    { name: 'Uranus', obj: uranus },
+    { name: 'Neptune', obj: neptune },
+    { name: 'Pluto', obj: pluto }
+  ];
+  
+  let loadedCount = 0;
+  const totalPlanets = planets.length;
+  
+  planets.forEach(({ name, obj }) => {
+    const images = getPlanetImagesFromJSON(name);
+    
+    if (images.length === 0) {
+      loadedCount++;
+      if (loadedCount === totalPlanets) {
+        applyPreloadedTextures();
+      }
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    const size = 2048;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    
+    // Fill canvas with base color first
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, size, size);
+
+    const cols = Math.ceil(Math.sqrt(images.length));
+    const rows = Math.ceil(images.length / cols);
+    const totalCells = cols * rows;
+    const cellWidth = size / cols;
+    const cellHeight = size / rows;
+
+    let loadedImages = 0;
+    const totalImages = images.length;
+    const loadedImgArray = [];
+
+    images.forEach((url, index) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        loadedImgArray.push(img);
+        loadedImages++;
+        
+        if (loadedImages === totalImages) {
+          // Fill all cells by repeating images cyclically
+          for (let i = 0; i < totalCells; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = col * cellWidth;
+            const y = row * cellHeight;
+            
+            // Use images cyclically to ensure no empty cells
+            const imgIndex = i % loadedImgArray.length;
+            const imgToDraw = loadedImgArray[imgIndex];
+            
+            ctx.globalAlpha = 1.0;
+            ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
+          }
+          
+          // Draw visible borders around each cell
+          ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+          ctx.lineWidth = 10;
+          for (let i = 0; i < totalCells; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = col * cellWidth;
+            const y = row * cellHeight;
+            ctx.strokeRect(x, y, cellWidth, cellHeight);
+          }
+          
+          applyPlanetFilters(ctx, size, name);
+          
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.needsUpdate = true;
+          texture.wrapS = THREE.RepeatWrapping;
+          texture.wrapT = THREE.RepeatWrapping;
+          // Ripeti la texture 2 volte per coprire meglio la sfera
+          texture.repeat.set(2, 2);
+          
+          preloadedMosaicTextures.set(name, texture);
+          loadedCount++;
+          
+          if (loadedCount === totalPlanets) {
+            applyPreloadedTextures();
+          }
+        }
+      };
+      
+      img.onerror = () => {
+        loadedImages++;
+        if (loadedImages === totalImages) {
+          // Fill remaining cells with loaded images
+          for (let i = 0; i < totalCells && loadedImgArray.length > 0; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = col * cellWidth;
+            const y = row * cellHeight;
+            
+            const imgIndex = i % loadedImgArray.length;
+            const imgToDraw = loadedImgArray[imgIndex];
+            
+            ctx.globalAlpha = 1.0;
+            ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
+          }
+          
+          // Draw visible borders even on error
+          ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+          ctx.lineWidth = 10;
+          for (let i = 0; i < totalCells; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = col * cellWidth;
+            const y = row * cellHeight;
+            ctx.strokeRect(x, y, cellWidth, cellHeight);
+          }
+          
+          applyPlanetFilters(ctx, size, name);
+          
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.needsUpdate = true;
+          texture.wrapS = THREE.RepeatWrapping;
+          texture.wrapT = THREE.RepeatWrapping;
+          // Ripeti la texture 2 volte per coprire meglio la sfera
+          texture.repeat.set(2, 2);
+          
+          preloadedMosaicTextures.set(name, texture);
+          loadedCount++;
+          
+          if (loadedCount === totalPlanets) {
+            applyPreloadedTextures();
+          }
+        }
+      };
+      
+      img.src = url;
+    });
+  });
+}
+
+function applyPreloadedTextures() {
+  const planets = [mercury, venus, earth, mars, jupiter, saturn, uranus, neptune, pluto];
+  
+  planets.forEach(planetObj => {
+    const texture = preloadedMosaicTextures.get(planetObj.name);
+    if (!texture) return;
+    
+    if (planetObj.name === 'Earth') {
+      const mosaicMaterial = new THREE.MeshPhongMaterial({
+        map: texture,
+        shininess: 5,
+        specular: 0x222222,
+        transparent: false,
+        opacity: 1.0
+      });
+      mosaicMaterial.userData = planetObj.planet.material.userData;
+      planetObj.planet.material = mosaicMaterial;
+    } else if (!(planetObj.planet.material.userData.originalTexture instanceof THREE.Material)) {
+      planetObj.planet.material.map = texture;
+      planetObj.planet.material.shininess = 5;
+      planetObj.planet.material.specular = new THREE.Color(0x222222);
+      planetObj.planet.material.transparent = false;
+      planetObj.planet.material.opacity = 1.0;
+      planetObj.planet.material.needsUpdate = true;
+    }
+  });
+  
+  mosaicTexturesReady = true;
+  
+  // Force a render update to ensure textures are applied
+  composer.render();
+  
+  // Show the scene now that textures are ready
+  setTimeout(() => {
+    renderer.domElement.style.transition = 'opacity 0.5s ease';
+    renderer.domElement.style.opacity = '1';
+    
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) {
+      loadingScreen.classList.add('fade-out');
+      setTimeout(() => {
+        loadingScreen.style.display = 'none';
+      }, 500);
+    }
+  }, 300);
+}
+
+// Start preloading immediately after planets are created
+preloadMosaicTextures();
+
 animate();
 
 window.addEventListener('mousemove', onMouseMove, false);
 window.addEventListener('mousedown', onDocumentMouseDown, false);
+// ******  PLANET DETAILS FUNCTION  ******
+function updatePlanetDetails(entry) {
+  const details = document.getElementById('planetDetails');
+  
+  if (!entry) {
+    details.innerHTML = '<div style="color: #999; font-style: italic;">Hover over an image to see details</div>';
+    return;
+  }
+
+  let tableHTML = '<table>';
+  
+  // Name (Unnamed: 1)
+  if (entry['Unnamed: 1']) {
+    tableHTML += `<tr><td>Name:</td><td>${entry['Unnamed: 1']}</td></tr>`;
+  }
+  
+  // Perception (Unnamed: 2)
+  if (entry['Unnamed: 2']) {
+    tableHTML += `<tr><td>Perception:</td><td>${entry['Unnamed: 2']}</td></tr>`;
+  }
+  
+  // Date (Unnamed: 3)
+  if (entry['Unnamed: 3']) {
+    tableHTML += `<tr><td>Date:</td><td>${entry['Unnamed: 3']}</td></tr>`;
+  }
+  
+  // Who (Unnamed: 4)
+  if (entry['Unnamed: 4']) {
+    tableHTML += `<tr><td>Who:</td><td>${entry['Unnamed: 4']}</td></tr>`;
+  }
+  
+  // Technique (Unnamed: 5)
+  if (entry['Unnamed: 5']) {
+    tableHTML += `<tr><td>Technique:</td><td>${entry['Unnamed: 5']}</td></tr>`;
+  }
+  
+  // Key Notes and Discoveries (Unnamed: 6)
+  if (entry['Unnamed: 6']) {
+    tableHTML += `<tr><td>Key Notes:</td><td>${entry['Unnamed: 6']}</td></tr>`;
+  }
+  
+  tableHTML += '</table>';
+  details.innerHTML = tableHTML;
+}
+
+// ******  TIMELINE FUNCTIONS  ******
+function loadTimeline(planetName) {
+  const timeline = document.getElementById('timeline');
+  timeline.innerHTML = '';
+
+  // Find all entries for this planet
+  // The JSON structure has the planet name in the first column, then all following rows
+  // with null in first column belong to that planet until the next planet name appears
+  const planetEntries = [];
+  let currentPlanet = null;
+  
+  for (let i = 0; i < sistemaSolareData.length; i++) {
+    const entry = sistemaSolareData[i];
+    const firstColumn = entry['In what ways the perception of the solar system evolved over the course of human history, from ancient cosmologies to modern science?  Question more specific  (timeline)'];
+    
+    // Check if this row starts a new planet section
+    if (firstColumn && firstColumn !== 'null') {
+      currentPlanet = firstColumn;
+    }
+    
+    // Collect entries for the target planet
+    if (currentPlanet && currentPlanet.toLowerCase() === planetName.toLowerCase()) {
+      planetEntries.push(entry);
+    }
+    
+    // Stop when we reach the next planet (after collecting all images)
+    if (currentPlanet && currentPlanet.toLowerCase() !== planetName.toLowerCase() && planetEntries.length > 0) {
+      break;
+    }
+  }
+
+  // Collect all valid images first
+  const allImages = [];
+  planetEntries.slice(1).forEach((entry, index) => {
+    const imageColumns = ['Unnamed: 7', 'Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10', 'Unnamed: 11'];
+    imageColumns.forEach(column => {
+      const imageUrl = entry[column];
+      if (imageUrl && imageUrl !== null && imageUrl !== 'null' && imageUrl.startsWith('http')) {
+        allImages.push({ entry, imageUrl });
+      }
+    });
+  });
+
+  // Calculate optimal width based on available space
+  const containerWidth = timeline.offsetWidth;
+  const totalImages = allImages.length;
+  const itemWidth = Math.max(40, Math.floor(containerWidth / totalImages));
+
+  // Create timeline items
+  allImages.forEach(({ entry, imageUrl }, index) => {
+    const timelineItem = document.createElement('div');
+    timelineItem.className = 'timeline-item';
+    
+    // Create varying heights for visual interest (like books on a shelf)
+    const minHeight = 120;
+    const maxHeight = 280;
+    const height = minHeight + Math.random() * (maxHeight - minHeight);
+    timelineItem.style.height = height + 'px';
+    timelineItem.style.flexGrow = '1';
+    timelineItem.style.flexBasis = itemWidth + 'px';
+    
+    const img = document.createElement('img');
+    img.src = imageUrl;
+    img.alt = entry['Unnamed: 1'] || 'Historical image';
+    img.onerror = function() {
+      this.parentElement.style.display = 'none';
+    };
+    
+    timelineItem.appendChild(img);
+    
+    // Add hover event to show preview and update details
+    timelineItem.addEventListener('mouseenter', () => {
+      updatePlanetDetails(entry);
+      showImagePreview(entry, imageUrl, timelineItem);
+    });
+    timelineItem.addEventListener('mouseleave', hideImagePreview);
+    
+    timeline.appendChild(timelineItem);
+  });
+}
+
+let currentPreviewElement = null;
+let hideTimeout = null;
+let currentHiddenItem = null;
+
+function showImagePreview(entry, imageUrl, itemElement) {
+  // Update planet details with current entry
+  updatePlanetDetails(entry);
+  
+  // Clear any pending hide
+  if (hideTimeout) {
+    clearTimeout(hideTimeout);
+    hideTimeout = null;
+  }
+  
+  // If same item, don't recreate
+  if (currentPreviewElement && currentPreviewElement.previousSibling === itemElement) {
+    return;
+  }
+  
+  // Hide any existing preview immediately
+  if (currentPreviewElement && currentPreviewElement.parentNode) {
+    currentPreviewElement.parentNode.removeChild(currentPreviewElement);
+    currentPreviewElement = null;
+  }
+  
+  // Show previously hidden item
+  if (currentHiddenItem) {
+    currentHiddenItem.style.display = '';
+    currentHiddenItem = null;
+  }
+  
+  // Hide the current item
+  itemElement.style.display = 'none';
+  currentHiddenItem = itemElement;
+  
+  const timeline = document.getElementById('timeline');
+  
+  // Create new preview element
+  const preview = document.createElement('div');
+  preview.className = 'timeline-image-preview active';
+  preview.id = 'activePreview';
+  
+  // Create image
+  const img = document.createElement('img');
+  img.src = imageUrl;
+  img.alt = entry['Unnamed: 1'] || 'Preview';
+  
+  // Create info
+  const infoDiv = document.createElement('div');
+  infoDiv.className = 'preview-info';
+  
+  let infoHTML = '';
+  
+  infoDiv.innerHTML = infoHTML;
+  
+  preview.appendChild(img);
+  preview.appendChild(infoDiv);
+  
+  // Insert preview right after the hovered item
+  itemElement.parentNode.insertBefore(preview, itemElement.nextSibling);
+  
+  currentPreviewElement = preview;
+  
+  // Add event listeners to preview to keep it visible
+  preview.addEventListener('mouseenter', () => {
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+      hideTimeout = null;
+    }
+  });
+  
+  preview.addEventListener('mouseleave', () => {
+    hideImagePreview();
+  });
+}
+
+function hideImagePreview() {
+  if (hideTimeout) {
+    clearTimeout(hideTimeout);
+  }
+  
+  hideTimeout = setTimeout(() => {
+    // Reset planet details to placeholder
+    updatePlanetDetails(null);
+    
+    if (currentPreviewElement && currentPreviewElement.parentNode) {
+      currentPreviewElement.classList.remove('active');
+      setTimeout(() => {
+        if (currentPreviewElement && currentPreviewElement.parentNode) {
+          currentPreviewElement.parentNode.removeChild(currentPreviewElement);
+        }
+        currentPreviewElement = null;
+        // Show the hidden item
+        if (currentHiddenItem) {
+          currentHiddenItem.style.display = '';
+          currentHiddenItem = null;
+        }
+      }, 300);
+    }
+  }, 100);
+}
+
+
+
 window.addEventListener('resize', function () {
   if (isInfoShown) {
     renderer.domElement.style.height = '50%';
