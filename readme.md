@@ -1,130 +1,39 @@
-# Solar System 3D
+# DDD-2025-Group9
+Giorgio Gaudio, Mattia Piatti, Elia Miglio
+## [Solar system perception] 
 
-An interactive 3D visualization of our solar system created with Three.js, allowing you to explore planets, their moons, and asteroids in real-time.
+### Data Collection
+- Where did you get your data from? [(https://api.nasa.gov) (https://www.mediawiki.org/w/api.php)] 
+- What’s your data about? In what ways the perception of the solar system evolved over the course of human history, from ancient cosmologies to modern science (name,	persepton, data, who, 	how)
+- Who is/are the sources/creators of your data? NASA and Wikipedia
 
-![Solar System 3D](https://via.placeholder.com/800x400/000011/ffffff?text=Solar+System+3D)
-
-## Features
-
-- **Interactive 3D Visualization**: Explore the solar system with smooth orbital controls
-- **Realistic Planets**: All 9 planets with accurate textures and relative sizes
-- **Moon System**: Realistic orbits for moons of Earth, Mars, Jupiter, and other planets
-- **Advanced Visual Effects**:
-  - Bloom pass for realistic lighting
-  - Outline pass to highlight selected planets
-  - Starry background with cubemap
-  - Transparent planetary atmospheres
-- **Interactivity**:
-  - Click planets to zoom and view detailed information
-  - Informational popup with astronomical data
-  - Mouse controls for 3D navigation
-- **Optimizations**: Efficient rendering with WebGL and post-processing
-
-## Technologies Used
-
-- **Three.js** - 3D framework for WebGL
-- **Vite** - Build tool and dev server
-- **Postprocessing** - Advanced visual effects
-- **JavaScript ES6+** - Programming language
-- **HTML5/CSS3** - Structure and styling
-
-## Installation
-
-### Prerequisites
-
-- Node.js (version 16 or higher)
-- npm or yarn
-
-### Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd solar-system-3d
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-
-4. **Open your browser**
-
-   The project will be available at `http://localhost:5173`
-
-## Usage
-
-### Basic Navigation
-- **Left mouse + drag**: Rotate the view
-- **Right mouse + drag**: Pan the camera
-- **Mouse wheel**: Zoom in/out
-
-### Planet Interaction
-- **Hover**: Highlight the planet with a glowing outline
-- **Click**: Automatic zoom on the selected planet
-- **Popup**: Display detailed planet information
-- **Close popup**: Return to the general solar system view
-
-### Available Planets
-- **Mercury** - The planet closest to the Sun
-- **Venus** - The hottest planet in the solar system
-- **Earth** - Our planet with the Moon
-- **Mars** - The red planet with two moons
-- **Jupiter** - The gas giant with its 4 main moons
-- **Saturn** - The planet with spectacular rings
-- **Uranus** - The tilted planet with thin rings
-- **Neptune** - The farthest planet from the Sun
-- **Pluto** - The dwarf planet
-
-## Project Structure
-
-```
-solar-system-3d/
-├── src/
-│   ├── index.html          # Main HTML
-│   ├── script.js           # Three.js logic and interactivity
-│   ├── style.css           # CSS styles
-│   ├── asteroids/          # 3D asteroid models
-│   └── images/             # Textures and materials
-│       ├── mars/           # 3D models of Mars' moons
-│       └── [planets]/      # Textures for each planet
-├── static/                 # Static assets
-├── dist/                   # Production build
-├── package.json            # Dependencies and scripts
-├── vite.config.js          # Vite configuration
-└── readme.md              # This documentation
-```
-
-## Available Scripts
-
-- `npm run dev` - Start the development server
-- `npm run build` - Create production build
-
-## Technical Features
-
-### Rendering
-- **WebGL Renderer** with cubemap texture support
-- **Post-processing pipeline** with bloom and outline effects
-- **Shadow mapping** for realistic lighting
-- **Tone mapping** ACES Filmic for accurate colors
-
-### Optimizations
-- **LOD (Level of Detail)** for optimal performance
-- **Automatic frustum culling**
-- **Texture compression** for fast loading
-- **Efficient memory management**
-
-### Physics and Animations
-- **Realistic orbits** based on astronomical data
-- **Planetary rotation** with relative speeds
-- **Smooth animations** with easing functions
-- **Particle system** for asteroids
+### Data Organisation
+- Have you combined data from different sources? How did you merge them?
+- Yes. The final dataset was built by combining several heterogeneous sources: official databases from space agencies (ESA, NASA, Copernicus), institutional archives, historical documentation, and manually created tables used to fill missing information.
+Wikipedia was consulted as an initial access point, but every piece of data was verified through primary sources or official documentation.
+To merge everything into a coherent dataset, we carried out a structured process of data cleaning and data standardization:
+Standardizing the columns (Assigned Name, Perception, Date, Author, Technique, Key Notes and Discoveries, Images).
+Normalizing formats, with particular attention to dates, agencies, URLs, and time intervals.
+Resolving inconsistencies between sources, removing duplicates, and unifying naming conventions.
+Integrating all records into a single CSV/JSON file to ensure consistent readability and direct use within the interactive database.
+This workflow ensured a consistent, readable dataset suitable for a visual and comparative project.
 
 
-##  License
+- What columns are more relevant for your project?
+- The most essential columns for the project are:
+Images
+This is the core column. The project relies on comparative visualisation: the images allow users to observe how the planet has been represented, studied, or perceived across different historical periods. Without this column, the project would lose its visual and narrative foundation.
+Perception
+This column explains how each event or discovery influenced the cultural and scientific representation of the planet. It is useful for filtering, categorising, and relating images to one another, and it directly affects the user experience within the interface.
+Description
+It provides immediate context, clarifying what each image represents and allowing users to understand the logic behind each entry in the database. It is essential for clear interpretation, especially in an interactive visualisation where content must be quickly understandable.
+These three columns form the main narrative structure: they connect each image to its meaning and to its historical-scientific context.
 
+- Have you used any AI-based tool to understand or manipulate your data? if yes, what and how?
+
+Yes, we used an AI model (ChatGPT) as a support tool, not as a source for generating new data.
+Specifically:
+Data verification: AI was used to check historical consistency, mission dates, discoveries, scientists’ names, and to ensure that secondary sources aligned with primary sources.
+Image selection and validation: AI assisted in identifying official, reliable images sourced from appropriate archives with licences suitable for academic use.
+Dataset cleaning and reorganisation: AI supported the normalisation of categories, the generation of coherent concise descriptions, and the structuring of the dataset’s columns.
+AI was not used to generate scientific content but rather as a tool for review, organisation, and quality control of the dataset.
