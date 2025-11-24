@@ -1,13 +1,14 @@
 @font-face {
     font-family: 'NB Architekt';
     src: url('./fonts/NBArchitektStd-Bold.woff2') format('woff2'),
-         url('./fonts/NBArchitektStd-Bold.woff') format('woff');
+        url('./fonts/NBArchitektStd-Bold.woff') format('woff');
     font-weight: bold;
     font-style: normal;
     font-display: swap;
 }
 
-html, body {
+html,
+body {
     margin: 0;
     padding: 0;
     width: 100%;
@@ -47,8 +48,13 @@ html, body {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 .loading-screen p {
@@ -91,7 +97,7 @@ html, body {
 
 .close-btn:hover,
 .close-btn:focus {
-    color: white; 
+    color: white;
     cursor: pointer;
 }
 
@@ -144,8 +150,8 @@ h2 {
 }
 
 p {
-    color: white; 
-    line-height: 1.5; 
+    color: white;
+    line-height: 1.5;
 }
 
 /* Timeline styles */
@@ -180,7 +186,7 @@ p {
 }
 
 .timeline img {
-        cursor: pointer;
+    cursor: pointer;
 
 }
 
@@ -569,14 +575,12 @@ p {
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: 
-        repeating-linear-gradient(
-            0deg,
+    background-image:
+        repeating-linear-gradient(0deg,
             transparent,
             transparent 2px,
             rgba(0, 0, 0, 0.3) 2px,
-            rgba(0, 0, 0, 0.3) 4px
-        );
+            rgba(0, 0, 0, 0.3) 4px);
     animation: scanlines 8s linear infinite;
 }
 
@@ -587,7 +591,7 @@ p {
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: 
+    background-image:
         url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='6.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
     opacity: 0.5;
     animation: grain 0.5s steps(4) infinite;
@@ -597,20 +601,96 @@ p {
     0% {
         transform: translateY(0);
     }
+
     100% {
         transform: translateY(10px);
     }
 }
 
 @keyframes grain {
-    0%, 100% { transform: translate(0, 0); }
-    10% { transform: translate(-5%, -5%); }
-    20% { transform: translate(-10%, 5%); }
-    30% { transform: translate(5%, -10%); }
-    40% { transform: translate(-5%, 15%); }
-    50% { transform: translate(-10%, 5%); }
-    60% { transform: translate(15%, 0); }
-    70% { transform: translate(0, 10%); }
-    80% { transform: translate(-15%, 0); }
-    90% { transform: translate(10%, 5%); }
+
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+
+    10% {
+        transform: translate(-5%, -5%);
+    }
+
+    20% {
+        transform: translate(-10%, 5%);
+    }
+
+    30% {
+        transform: translate(5%, -10%);
+    }
+
+    40% {
+        transform: translate(-5%, 15%);
+    }
+
+    50% {
+        transform: translate(-10%, 5%);
+    }
+
+    60% {
+        transform: translate(15%, 0);
+    }
+
+    70% {
+        transform: translate(0, 10%);
+    }
+
+    80% {
+        transform: translate(-15%, 0);
+    }
+
+    90% {
+        transform: translate(10%, 5%);
+    }
+}
+
+/* Mobile Message */
+.mobile-message {
+    display: none;
+    color: rgba(255, 255, 255, 0.9);
+    font-family: 'NB Architekt', Arial, sans-serif;
+    font-size: 14px;
+    font-weight: normal;
+    margin-top: 20px;
+    line-height: 1.5;
+    text-align: center;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+    canvas {
+        display: none !important;
+    }
+    
+    #loading-screen,
+    #controlsLegend,
+    #planetInfo,
+    #imageCarousel,
+    .film-effect {
+        display: none !important;
+    }
+    
+    .main-title-container {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-width: 90%;
+        text-align: center;
+    }
+    
+    .main-subtitle {
+        display: none;
+    }
+    
+    .mobile-message {
+        display: block;
+    }
 }
