@@ -261,6 +261,7 @@ p {
     transform: scale(1);
     overflow: visible;
     padding: 10px;
+    animation: fadeInScale 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
 }
 
 .timeline-image-preview img {
