@@ -310,6 +310,13 @@ function startPlanetInfoAnimation(planet) {
   info.style.transform = 'translateY(0)';
   isInfoShown = true;
   controls.enabled = false; // Disable orbit controls
+  
+  // Hide main title and controls legend
+  const mainTitle = document.getElementById('mainTitle');
+  if (mainTitle) mainTitle.classList.add('hidden');
+  const controlsLegend = document.getElementById('controlsLegend');
+  if (controlsLegend) controlsLegend.classList.add('hidden');
+  
   animateCanvasHeight(50, 500, () => {
     // after animation
   });
@@ -324,6 +331,13 @@ function closeInfo() {
   accelerationOrbit = 1;
   isInfoShown = false;
   controls.enabled = true; // Re-enable orbit controls
+  
+  // Show main title and controls legend
+  const mainTitle = document.getElementById('mainTitle');
+  if (mainTitle) mainTitle.classList.remove('hidden');
+  const controlsLegend = document.getElementById('controlsLegend');
+  if (controlsLegend) controlsLegend.classList.remove('hidden');
+  
   animateCanvasHeight(100, 500, () => {
     // after animation
   });
@@ -485,7 +499,7 @@ function createPlanet(planetName, size, position, tilt, texture, bump, ring, atm
       }
       const moonGeometry = new THREE.SphereGeometry(moon.size, 32, 20);
       const moonMesh = new THREE.Mesh(moonGeometry, moonMaterial);
-      const moonOrbitDistance = size * 1.5;
+      const moonOrbitDistance = size * 2.5;
       moonMesh.position.set(moonOrbitDistance, 0, 0);
       planetSystem.add(moonMesh);
       moon.mesh = moonMesh;
@@ -556,75 +570,75 @@ function applyPlanetFilters(ctx, size, planetName) {
 
   //----------------------------------------------------------------------------------------------------------------
 
-  // Get planet color profile
-  const colorProfile = getPlanetColorProfile(planetName);
+  // // Get planet color profile
+  // const colorProfile = getPlanetColorProfile(planetName);
   
-  // Get image data
-  const imageData = ctx.getImageData(0, 0, size, size);
-  const data = imageData.data;
+  // // Get image data
+  // const imageData = ctx.getImageData(0, 0, size, size);
+  // const data = imageData.data;
   
-  // Apply color adjustments and vignette effect
-  const centerX = size / 2;
-  const centerY = size / 2;
-  const maxRadius = size / 2;
+  // // Apply color adjustments and vignette effect
+  // const centerX = size / 2;
+  // const centerY = size / 2;
+  // const maxRadius = size / 2;
   
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const i = (y * size + x) * 4;
+  // for (let y = 0; y < size; y++) {
+  //   for (let x = 0; x < size; x++) {
+  //     const i = (y * size + x) * 4;
       
-      // Calculate distance from center
-      const dx = x - centerX;
-      const dy = y - centerY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      const normalizedDistance = distance / maxRadius;
+  //     // Calculate distance from center
+  //     const dx = x - centerX;
+  //     const dy = y - centerY;
+  //     const distance = Math.sqrt(dx * dx + dy * dy);
+  //     const normalizedDistance = distance / maxRadius;
       
-      // Apply vignette effect (darker at edges)
-      const vignette = Math.max(0, 1 - Math.pow(normalizedDistance, 1.5) * 0.4);
+  //     // Apply vignette effect (darker at edges)
+  //     const vignette = Math.max(0, 1 - Math.pow(normalizedDistance, 1.5) * 0.4);
       
-      // Apply spherical shading
-      const sphereFactor = Math.cos(normalizedDistance * Math.PI / 2);
+  //     // Apply spherical shading
+  //     const sphereFactor = Math.cos(normalizedDistance * Math.PI / 2);
       
-      // Get original colors
-      let r = data[i];
-      let g = data[i + 1];
-      let b = data[i + 2];
+  //     // Get original colors
+  //     let r = data[i];
+  //     let g = data[i + 1];
+  //     let b = data[i + 2];
       
-      // Convert to grayscale first
-      const gray = (r * 0.299 + g * 0.587 + b * 0.114);
+  //     // Convert to grayscale first
+  //     const gray = (r * 0.299 + g * 0.587 + b * 0.114);
       
-      // Apply subtle planet-specific color tint (molto ridotto per vedere meglio le immagini)
-      const tintStrength = 0.3;
-      r = gray * (1 - tintStrength) + colorProfile.tint[0] * tintStrength;
-      g = gray * (1 - tintStrength) + colorProfile.tint[1] * tintStrength;
-      b = gray * (1 - tintStrength) + colorProfile.tint[2] * tintStrength;
+  //     // Apply subtle planet-specific color tint (molto ridotto per vedere meglio le immagini)
+  //     const tintStrength = 0.3;
+  //     r = gray * (1 - tintStrength) + colorProfile.tint[0] * tintStrength;
+  //     g = gray * (1 - tintStrength) + colorProfile.tint[1] * tintStrength;
+  //     b = gray * (1 - tintStrength) + colorProfile.tint[2] * tintStrength;
       
-      // Adjust saturation based on planet
-      const finalGray = (r + g + b) / 3;
-      const saturation = colorProfile.saturation * 1.5;
-      r = finalGray + (r - finalGray) * saturation;
-      g = finalGray + (g - finalGray) * saturation;
-      b = finalGray + (b - finalGray) * saturation;
+  //     // Adjust saturation based on planet
+  //     const finalGray = (r + g + b) / 3;
+  //     const saturation = colorProfile.saturation * 1.5;
+  //     r = finalGray + (r - finalGray) * saturation;
+  //     g = finalGray + (g - finalGray) * saturation;
+  //     b = finalGray + (b - finalGray) * saturation;
       
-      // Apply brightness and lighting (aumentato per maggiore visibilità)
-      const lighting = vignette * (0.9 + sphereFactor * 0.2) * colorProfile.brightness * 1.2;
+  //     // Apply brightness and lighting (aumentato per maggiore visibilità)
+  //     const lighting = vignette * (0.9 + sphereFactor * 0.2) * colorProfile.brightness * 1.2;
       
-      data[i] = Math.min(255, r * lighting);
-      data[i + 1] = Math.min(255, g * lighting);
-      data[i + 2] = Math.min(255, b * lighting);
-    }
-  }
+  //     data[i] = Math.min(255, r * lighting);
+  //     data[i + 1] = Math.min(255, g * lighting);
+  //     data[i + 2] = Math.min(255, b * lighting);
+  //   }
+  // }
   
-  ctx.putImageData(imageData, 0, 0);
+  // ctx.putImageData(imageData, 0, 0);
   
-  // Apply subtle blur at edges
-  ctx.globalCompositeOperation = 'destination-in';
-  const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
-  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-  gradient.addColorStop(0.7, 'rgba(255, 255, 255, 1)');
-  gradient.addColorStop(1, 'rgba(255, 255, 255, 0.95)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, size, size);
-  ctx.globalCompositeOperation = 'source-over';
+  // // Apply subtle blur at edges
+  // ctx.globalCompositeOperation = 'destination-in';
+  // const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
+  // gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  // gradient.addColorStop(0.7, 'rgba(255, 255, 255, 1)');
+  // gradient.addColorStop(1, 'rgba(255, 255, 255, 0.95)');
+  // ctx.fillStyle = gradient;
+  // ctx.fillRect(0, 0, size, size);
+  // ctx.globalCompositeOperation = 'source-over';
 
   //----------------------------------------------------------------------------------------------------------------
 }
@@ -938,7 +952,7 @@ const earthMoon = [{
   texture: earthMoonTexture,
   bump: earthMoonBump,
   orbitSpeed: 0.001 * accelerationOrbit,
-  orbitRadius: 10
+  orbitRadius: 20
 }]
 
 // Mars' moons with path to 3D models (phobos & deimos)
@@ -946,7 +960,7 @@ const marsMoons = [
   {
     modelPath: '/images/mars/phobos.glb',
     scale: 0.1,
-    orbitRadius: 5,
+    orbitRadius: 8,
     orbitSpeed: 0.002 * accelerationOrbit,
     position: 100,
     mesh: null
@@ -954,7 +968,7 @@ const marsMoons = [
   {
     modelPath: '/images/mars/deimos.glb',
     scale: 0.1,
-    orbitRadius: 9,
+    orbitRadius: 14,
     orbitSpeed: 0.0005 * accelerationOrbit,
     position: 120,
     mesh: null
@@ -966,34 +980,34 @@ const jupiterMoons = [
   {
     size: 1.6,
     texture: ioTexture,
-    orbitRadius: 20,
+    orbitRadius: 28,
     orbitSpeed: 0.0005 * accelerationOrbit
   },
   {
     size: 1.4,
     texture: europaTexture,
-    orbitRadius: 24,
+    orbitRadius: 34,
     orbitSpeed: 0.00025 * accelerationOrbit
   },
   {
     size: 2,
     texture: ganymedeTexture,
-    orbitRadius: 28,
+    orbitRadius: 40,
     orbitSpeed: 0.000125 * accelerationOrbit
   },
   {
     size: 1.7,
     texture: callistoTexture,
-    orbitRadius: 32,
+    orbitRadius: 46,
     orbitSpeed: 0.00006 * accelerationOrbit
   }
 ];
 
 // ******  PLANET CREATIONS  ******
-const mercury = new createPlanet('Mercury', 2.4 * 1.2, 40, 0, mercuryTexture, mercuryBump);
-const venus = new createPlanet('Venus', 6.1 * 1.2, 65, 3, venusTexture, venusBump, null, venusAtmosphere);
-const earth = new createPlanet('Earth', 6.4 * 1.2, 90, 23, earthMaterial, null, null, earthAtmosphere, earthMoon);
-const mars = new createPlanet('Mars', 3.4, 115, 25, marsTexture, marsBump)
+const mercury = new createPlanet('Mercury', 2.4 * 2.5, 50, 0, mercuryTexture, mercuryBump);
+const venus = new createPlanet('Venus', 6.1 * 2.5, 85, 3, venusTexture, venusBump, null, venusAtmosphere);
+const earth = new createPlanet('Earth', 6.4 * 2.5, 125, 23, earthMaterial, null, null, earthAtmosphere, earthMoon);
+const mars = new createPlanet('Mars', 3.4, 160, 25, marsTexture, marsBump)
 // Load Mars moons
 marsMoons.forEach(moon => {
   loadObject(moon.modelPath, moon.position, moon.scale, function (loadedModel) {
@@ -1008,18 +1022,18 @@ marsMoons.forEach(moon => {
   });
 });
 
-const jupiter = new createPlanet('Jupiter', (69 / 4) * 1.2, 200, 3, jupiterTexture, null, null, null, jupiterMoons);
-const saturn = new createPlanet('Saturn', (58 / 4) * 1.2, 270, 26, saturnTexture, null, {
-  innerRadius: 18,
-  outerRadius: 29,
+const jupiter = new createPlanet('Jupiter', (69 / 4) * 2.5, 240, 3, jupiterTexture, null, null, null, jupiterMoons);
+const saturn = new createPlanet('Saturn', (58 / 4) * 2.5, 330, 26, saturnTexture, null, {
+  innerRadius: 30,
+  outerRadius: 48,
   texture: satRingTexture
 });
-const uranus = new createPlanet('Uranus', (25 / 4) * 1.2, 320, 82, uranusTexture, null, {
-  innerRadius: 6,
-  outerRadius: 8,
+const uranus = new createPlanet('Uranus', (25 / 4) * 2.5, 400, 82, uranusTexture, null, {
+  innerRadius: 14,
+  outerRadius: 20,
   texture: uraRingTexture
 });
-const neptune = new createPlanet('Neptune', (24 / 4) * 1.2, 340, 28, neptuneTexture);
+const neptune = new createPlanet('Neptune', (24 / 4) * 2.5, 450, 28, neptuneTexture);
 
 // ******  PLANETS DATA  ******
 const planetData = {
@@ -1918,6 +1932,20 @@ document.addEventListener('mousemove', (e) => {
     }
   }
 });
+
+// ******  UPDATE CONTROLS LEGEND BASED ON OS  ******
+function updateControlsLegend() {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const modifierKey = isMac ? 'CMD ⌘' : 'CTRL';
+  
+  const legendItems = document.querySelectorAll('.legend-item');
+  if (legendItems.length > 0) {
+    legendItems[0].textContent = `${modifierKey} + Drag: Pan`;
+  }
+}
+
+// Update legend on page load
+updateControlsLegend();
 
 // Add keyboard navigation
 document.addEventListener('keydown', (e) => {
