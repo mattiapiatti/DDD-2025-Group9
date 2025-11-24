@@ -1038,13 +1038,13 @@ marsMoons.forEach(moon => {
 
 const jupiter = new createPlanet('Jupiter', (69 / 4) * 2.5, 240, 3, jupiterTexture, null, null, null, jupiterMoons);
 const saturn = new createPlanet('Saturn', (58 / 4) * 2.5, 330, 26, saturnTexture, null, {
-  innerRadius: 30,
-  outerRadius: 48,
+  innerRadius: 40,
+  outerRadius: 58,
   texture: satRingTexture
 });
 const uranus = new createPlanet('Uranus', (25 / 4) * 2.5, 400, 82, uranusTexture, null, {
-  innerRadius: 14,
-  outerRadius: 20,
+  innerRadius: 20,
+  outerRadius: 26,
   texture: uraRingTexture
 });
 const neptune = new createPlanet('Neptune', (24 / 4) * 2.5, 450, 28, neptuneTexture);
@@ -1259,8 +1259,12 @@ function animate() {
   // Reset all outlines
   outlinePass.selectedObjects = [];
 
-  // Only show outlines if popup is not open
-  if (intersects.length > 0 && !isInfoShown) {
+  // Check if loading screen is still visible
+  const loadingScreen = document.getElementById('loading-screen');
+  const isLoadingVisible = loadingScreen && loadingScreen.style.display !== 'none';
+
+  // Only show outlines if popup is not open and loading screen is hidden
+  if (intersects.length > 0 && !isInfoShown && !isLoadingVisible) {
     const intersectedObject = intersects[0].object;
     let planetName = null;
     const planetObj = identifyPlanet(intersectedObject);
