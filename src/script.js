@@ -1619,6 +1619,11 @@ function loadTimeline(planetName) {
     });
     timelineItem.addEventListener('mouseleave', hideImagePreview);
     
+    // Add click event to open carousel
+    timelineItem.addEventListener('click', () => {
+      openCarousel(allImages, index);
+    });
+    
     timeline.appendChild(timelineItem);
   });
 }
@@ -1697,6 +1702,49 @@ function showImagePreview(entry, imageUrl, itemElement) {
   preview.addEventListener('mouseleave', () => {
     hideImagePreview();
   });
+  
+  // Add click event to open carousel
+  preview.addEventListener('click', () => {
+    // Find the index of this image in the timeline
+    const timeline = document.getElementById('timeline');
+    const allTimelineImages = Array.from(timeline.querySelectorAll('.timeline-item'));
+    const index = allTimelineImages.indexOf(itemElement);
+    
+    // Get all images from the current planet
+    const planetName = document.getElementById('planetName').innerText;
+    const planetEntries = [];
+    let currentPlanet = null;
+    
+    for (let i = 0; i < sistemaSolareData.length; i++) {
+      const dataEntry = sistemaSolareData[i];
+      const firstColumn = dataEntry['In what ways the perception of the solar system evolved over the course of human history, from ancient cosmologies to modern science?  Question more specific  (timeline)'];
+      
+      if (firstColumn && firstColumn !== 'null') {
+        currentPlanet = firstColumn;
+      }
+      
+      if (currentPlanet && currentPlanet.toLowerCase() === planetName.toLowerCase()) {
+        planetEntries.push(dataEntry);
+      }
+      
+      if (currentPlanet && currentPlanet.toLowerCase() !== planetName.toLowerCase() && planetEntries.length > 0) {
+        break;
+      }
+    }
+    
+    const allPlanetImages = [];
+    planetEntries.slice(1).forEach((dataEntry) => {
+      const imageColumns = ['Unnamed: 7', 'Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10', 'Unnamed: 11'];
+      imageColumns.forEach(column => {
+        const imgUrl = dataEntry[column];
+        if (imgUrl && imgUrl !== null && imgUrl !== 'null' && !imgUrl.startsWith('http')) {
+          allPlanetImages.push({ entry: dataEntry, imageUrl: imgUrl });
+        }
+      });
+    });
+    
+    openCarousel(allPlanetImages, index >= 0 ? index : 0);
+  });
 }
 
 function hideImagePreview() {
@@ -1740,4 +1788,146 @@ window.addEventListener('resize', function () {
     camera.aspect = window.innerWidth / window.innerHeight;
   }
   camera.updateProjectionMatrix();
+});
+
+// ******  IMAGE CAROUSEL FUNCTIONALITY  ******
+let carouselImages = [];
+let currentCarouselIndex = 0;
+
+function openCarousel(images, startIndex) {
+  carouselImages = images;
+  currentCarouselIndex = startIndex;
+  
+  const carousel = document.getElementById('imageCarousel');
+  carousel.classList.add('active');
+  
+  showCarouselImage(currentCarouselIndex);
+  
+  // Prevent body scroll when carousel is open
+  document.body.style.overflow = 'hidden';
+  
+  // Add click navigation
+  const carouselContent = document.querySelector('.carousel-content');
+  if (carouselContent && !carouselContent.hasAttribute('data-click-listener')) {
+    carouselContent.setAttribute('data-click-listener', 'true');
+    carouselContent.addEventListener('click', handleCarouselClick);
+  }
+}
+
+function handleCarouselClick(e) {
+  const carouselContent = e.currentTarget;
+  const rect = carouselContent.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const contentWidth = rect.width;
+  
+  // Left side (0 to 33.333%) - previous image
+  if (clickX < contentWidth * 0.33333) {
+    navigateCarousel(-1);
+  }
+  // Right side (33.333% to 100%) - next image
+  else if (clickX >= contentWidth * 0.33333) {
+    navigateCarousel(1);
+  }
+}
+
+function closeCarousel() {
+  const carousel = document.getElementById('imageCarousel');
+  carousel.classList.remove('active');
+  
+  // Restore body scroll
+  document.body.style.overflow = '';
+  
+  // Remove click listener
+  const carouselContent = document.querySelector('.carousel-content');
+  if (carouselContent) {
+    carouselContent.removeEventListener('click', handleCarouselClick);
+    carouselContent.removeAttribute('data-click-listener');
+  }
+}
+
+function navigateCarousel(direction) {
+  currentCarouselIndex += direction;
+  
+  // Loop around
+  if (currentCarouselIndex < 0) {
+    currentCarouselIndex = carouselImages.length - 1;
+  } else if (currentCarouselIndex >= carouselImages.length) {
+    currentCarouselIndex = 0;
+  }
+  
+  showCarouselImage(currentCarouselIndex);
+}
+
+function showCarouselImage(index) {
+  const { entry, imageUrl } = carouselImages[index];
+  
+  const img = document.getElementById('carouselImage');
+  img.src = imageUrl;
+  
+  const infoDiv = document.getElementById('carouselInfo');
+  let infoHTML = '<table>';
+  
+  if (entry['Unnamed: 1']) {
+    infoHTML += `<tr><td>Name:</td><td>${entry['Unnamed: 1']}</td></tr>`;
+  }
+  if (entry['Unnamed: 2']) {
+    infoHTML += `<tr><td>Perception:</td><td>${entry['Unnamed: 2']}</td></tr>`;
+  }
+  if (entry['Unnamed: 3']) {
+    infoHTML += `<tr><td>Date:</td><td>${entry['Unnamed: 3']}</td></tr>`;
+  }
+  if (entry['Unnamed: 4']) {
+    infoHTML += `<tr><td>Who:</td><td>${entry['Unnamed: 4']}</td></tr>`;
+  }
+  if (entry['Unnamed: 5']) {
+    infoHTML += `<tr><td>Technique:</td><td>${entry['Unnamed: 5']}</td></tr>`;
+  }
+  if (entry['Unnamed: 6']) {
+    infoHTML += `<tr><td>Key Notes:</td><td>${entry['Unnamed: 6']}</td></tr>`;
+  }
+  
+  infoHTML += '</table>';
+  infoDiv.innerHTML = infoHTML;
+  
+  // Update counter as data attribute
+  const carouselContent = document.querySelector('.carousel-content');
+  if (carouselContent) {
+    carouselContent.setAttribute('data-counter', `${index + 1} / ${carouselImages.length}`);
+  }
+}
+
+// Make functions global for onclick handlers
+window.closeCarousel = closeCarousel;
+window.navigateCarousel = navigateCarousel;
+
+// Track mouse position for custom cursor counter
+let mouseX = 0;
+let mouseY = 0;
+
+document.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  
+  const carousel = document.getElementById('imageCarousel');
+  if (carousel && carousel.classList.contains('active')) {
+    const carouselContent = document.querySelector('.carousel-content');
+    if (carouselContent) {
+      carouselContent.style.setProperty('--mouse-x', mouseX + 'px');
+      carouselContent.style.setProperty('--mouse-y', mouseY + 'px');
+    }
+  }
+});
+
+// Add keyboard navigation
+document.addEventListener('keydown', (e) => {
+  const carousel = document.getElementById('imageCarousel');
+  if (carousel.classList.contains('active')) {
+    if (e.key === 'ArrowLeft') {
+      navigateCarousel(-1);
+    } else if (e.key === 'ArrowRight') {
+      navigateCarousel(1);
+    } else if (e.key === 'Escape') {
+      closeCarousel();
+    }
+  }
 });

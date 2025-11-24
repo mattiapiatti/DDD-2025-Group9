@@ -26,5 +26,17 @@
             </div>
         </div>
     </div>
+    
+    <!-- Fullscreen Image Carousel -->
+    <div id="imageCarousel" class="image-carousel">
+        <span class="carousel-close" onclick="closeCarousel()">&times;</span>
+        <button class="carousel-btn carousel-prev" onclick="navigateCarousel(-1)">&#10094;</button>
+        <button class="carousel-btn carousel-next" onclick="navigateCarousel(1)">&#10095;</button>
+        <div class="carousel-content">
+            <img id="carouselImage" src="" alt="Full size image">
+            <div id="carouselInfo" class="carousel-info"></div>
+        </div>
+        <div class="carousel-counter"><span id="carouselCounter"></span></div>
+    </div>
 </body>
 </html>
