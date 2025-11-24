@@ -120,6 +120,13 @@ function onMouseMove(event) {
   event.preventDefault();
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+  // Update tooltip position
+  const tooltip = document.getElementById('planetTooltip');
+  if (tooltip && tooltip.style.display === 'block') {
+    tooltip.style.left = (event.clientX + 15) + 'px';
+    tooltip.style.top = (event.clientY - 10) + 'px';
+  }
 }
 
 // ******  SELECT PLANET  ******
@@ -1012,7 +1019,7 @@ const jupiterMoons = [
 const mercury = new createPlanet('Mercury', 2.4 * 2.5, 50, 0, mercuryTexture, mercuryBump);
 const venus = new createPlanet('Venus', 6.1 * 2.5, 85, 3, venusTexture, venusBump, null, venusAtmosphere);
 const earth = new createPlanet('Earth', 6.4 * 2.5, 125, 23, earthMaterial, null, null, earthAtmosphere, earthMoon);
-const mars = new createPlanet('Mars', 3.4, 160, 25, marsTexture, marsBump)
+const mars = new createPlanet('Mars', 3.4 * 2.5, 160, 25, marsTexture, marsBump)
 // Load Mars moons
 marsMoons.forEach(moon => {
   loadObject(moon.modelPath, moon.position, moon.scale, function (loadedModel) {
@@ -1253,16 +1260,38 @@ function animate() {
   // Only show outlines if popup is not open
   if (intersects.length > 0 && !isInfoShown) {
     const intersectedObject = intersects[0].object;
+    let planetName = null;
+    const planetObj = identifyPlanet(intersectedObject);
 
     // If the intersected object is an atmosphere, find the corresponding planet
     if (intersectedObject === earth.Atmosphere) {
       outlinePass.selectedObjects = [earth.planet];
+      planetName = 'Earth';
     } else if (intersectedObject === venus.Atmosphere) {
       outlinePass.selectedObjects = [venus.planet];
+      planetName = 'Venus';
     } else {
       // For other planets, outline the intersected object itself
       outlinePass.selectedObjects = [intersectedObject];
+      
+      // Find planet name
+      if (planetObj && planetObj.name) {
+        planetName = planetObj.name.charAt(0).toUpperCase() + planetObj.name.slice(1);
+      }
     }
+    
+    // Show tooltip and change cursor
+    if (planetName) {
+      const tooltip = document.getElementById('planetTooltip');
+      tooltip.textContent = planetName;
+      tooltip.style.display = 'block';
+      document.body.style.cursor = 'pointer';
+    }
+  } else {
+    // Hide tooltip and reset cursor
+    const tooltip = document.getElementById('planetTooltip');
+    tooltip.style.display = 'none';
+    document.body.style.cursor = 'default';
   }
 // ******  ZOOM IN/OUT  ******
 if (isMovingTowardsPlanet) {
