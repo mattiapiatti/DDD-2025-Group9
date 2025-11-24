@@ -507,6 +507,11 @@ function createPlanet(planetName, size, position, tilt, texture, bump, ring, atm
   }
   //add planet system to planet3d object and to the scene
   planet3d.add(planetSystem);
+  
+  // Randomize initial orbital position
+  const randomAngle = Math.random() * Math.PI * 2;
+  planet3d.rotation.y = randomAngle;
+  
   scene.add(planet3d);
   return { name, planet, planet3d, Atmosphere, moons, planetSystem, Ring, originalMaterial: material };
 }
