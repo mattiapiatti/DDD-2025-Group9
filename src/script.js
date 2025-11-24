@@ -45,7 +45,10 @@ var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHei
 camera.position.set(-175, 115, 5);
 
 console.log("Create the renderer");
-const renderer = new THREE.WebGL1Renderer();
+const renderer = new THREE.WebGLRenderer({
+  powerPreference: 'high-performance',
+  antialias: true
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 renderer.domElement.style.width = '100%';
@@ -510,13 +513,13 @@ function getPlanetImagesFromJSON(planetName) {
     }
   }
 
-  // Collect all valid images
+  // Collect all valid images (only local paths, skip external URLs)
   const allImages = [];
   planetEntries.slice(1).forEach((entry) => {
     const imageColumns = ['Unnamed: 7', 'Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10', 'Unnamed: 11'];
     imageColumns.forEach(column => {
       const imageUrl = entry[column];
-      if (imageUrl && imageUrl !== null && imageUrl !== 'null' && imageUrl.startsWith('http')) {
+      if (imageUrl && imageUrl !== null && imageUrl !== 'null' && !imageUrl.startsWith('http')) {
         allImages.push(imageUrl);
       }
     });
@@ -648,14 +651,18 @@ function createMosaicTexture(planetName, planet) {
 
   images.forEach((url, index) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Empty string allows local images to be read by canvas
+    if (!url.startsWith('http')) {
+      img.crossOrigin = '';
+    }
     
     img.onload = () => {
       loadedImgArray.push(img);
       loadedImages++;
       
-      // When all images are loaded, draw them to fill the entire grid
       if (loadedImages === totalImages) {
+        // Only draw if we have successfully loaded images
+        if (loadedImgArray.length > 0) {
         // Fill all cells by repeating images cyclically
         for (let i = 0; i < totalCells; i++) {
           const col = i % cols;
@@ -671,59 +678,76 @@ function createMosaicTexture(planetName, planet) {
           ctx.globalAlpha = 1.0;
           ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
         }
-        // Draw visible borders around each cell to make mosaic more visible
-        ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
-        ctx.lineWidth = 10;
-        for (let i = 0; i < totalCells; i++) {
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-          const x = col * cellWidth;
-          const y = row * cellHeight;
-          ctx.strokeRect(x, y, cellWidth, cellHeight);
-        }
-        
-        // Apply planet-like filters with planet-specific color
-        applyPlanetFilters(ctx, size, planetName);
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.needsUpdate = true;
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-        // Ripeti la texture 2 volte per coprire meglio la sfera
-        texture.repeat.set(2, 2);
-        
-        // Handle Earth's shader material specially
-        if (planetName === 'Earth') {
-          // Replace Earth's shader material with a simple material showing the mosaic
-          const mosaicMaterial = new THREE.MeshPhongMaterial({
-            map: texture,
-            shininess: 5,
-            specular: 0x222222,
-            transparent: false,
-            opacity: 1.0
-          });
-          mosaicMaterial.userData = planet.material.userData;
-          planet.material = mosaicMaterial;
-        } else if (planet.material.userData.originalTexture instanceof THREE.Material) {
-          // For other shader materials
-          console.log(`Cannot apply mosaic to shader material for ${planetName}`);
-        } else {
-          planet.material.map = texture;
-          planet.material.shininess = 5;
-          planet.material.specular = new THREE.Color(0x222222);
-          planet.material.transparent = false;
-          planet.material.opacity = 1.0;
-          planet.material.needsUpdate = true;
+      }
+      
+      // Draw visible borders around each cell to make mosaic more visible
+      ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+      ctx.lineWidth = 10;
+      for (let i = 0; i < totalCells; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const x = col * cellWidth;
+        const y = row * cellHeight;
+        ctx.strokeRect(x, y, cellWidth, cellHeight);
+      }
+      
+      // Apply planet-like filters with planet-specific color
+      applyPlanetFilters(ctx, size, planetName);
+      
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      // Ripeti la texture 2 volte per coprire meglio la sfera
+      texture.repeat.set(2, 2);
+      
+      // Handle Earth's shader material specially
+      if (planetName === 'Earth') {
+        // Replace Earth's shader material with a simple material showing the mosaic
+        const mosaicMaterial = new THREE.MeshPhongMaterial({
+          map: texture,
+          shininess: 5,
+          specular: 0x222222,
+          transparent: false,
+          opacity: 1.0
+        });
+        mosaicMaterial.userData = planet.material.userData;
+        planet.material = mosaicMaterial;
+      } else if (planet.material.userData.originalTexture instanceof THREE.Material) {
+        // For other shader materials
+        console.log(`Cannot apply mosaic to shader material for ${planetName}`);
+      } else {
+        planet.material.map = texture;
+        planet.material.shininess = 5;
+        planet.material.specular = new THREE.Color(0x222222);
+        planet.material.transparent = false;
+        planet.material.opacity = 1.0;
+        planet.material.needsUpdate = true;
         }
       }
     };
     
     img.onerror = () => {
-      console.warn(`Failed to load image: ${url}`);
+      // Silently skip failed images - they will be excluded from mosaic
       loadedImages++;
       
       if (loadedImages === totalImages) {
-        // Draw visible borders even on error
+        // Draw with available images
+        if (loadedImgArray.length > 0) {
+          for (let i = 0; i < totalCells; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = col * cellWidth;
+            const y = row * cellHeight;
+            
+            const imgIndex = i % loadedImgArray.length;
+            const imgToDraw = loadedImgArray[imgIndex];
+            
+            ctx.globalAlpha = 1.0;
+            ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
+          }
+        }
+        
         ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
         ctx.lineWidth = 10;
         for (let i = 0; i < totalCells; i++) {
@@ -734,14 +758,12 @@ function createMosaicTexture(planetName, planet) {
           ctx.strokeRect(x, y, cellWidth, cellHeight);
         }
         
-        // Apply filters even if some images failed
         applyPlanetFilters(ctx, size, planetName);
         
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
-        // Ripeti la texture 2 volte per coprire meglio la sfera
         texture.repeat.set(2, 2);
         
         if (planetName === 'Earth') {
@@ -1310,13 +1332,18 @@ function preloadMosaicTextures() {
 
     images.forEach((url, index) => {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      // Empty string allows local images to be read by canvas
+      if (!url.startsWith('http')) {
+        img.crossOrigin = '';
+      }
       
       img.onload = () => {
         loadedImgArray.push(img);
         loadedImages++;
         
         if (loadedImages === totalImages) {
+        // Only draw if we have successfully loaded images
+        if (loadedImgArray.length > 0) {
           // Fill all cells by repeating images cyclically
           for (let i = 0; i < totalCells; i++) {
             const col = i % cols;
@@ -1353,6 +1380,8 @@ function preloadMosaicTextures() {
           texture.repeat.set(2, 2);
           
           preloadedMosaicTextures.set(name, texture);
+          }
+          
           loadedCount++;
           
           if (loadedCount === totalPlanets) {
@@ -1362,43 +1391,44 @@ function preloadMosaicTextures() {
       };
       
       img.onerror = () => {
+        // Silently skip failed images - they will be excluded from mosaic
         loadedImages++;
         if (loadedImages === totalImages) {
-          // Fill remaining cells with loaded images
-          for (let i = 0; i < totalCells && loadedImgArray.length > 0; i++) {
-            const col = i % cols;
-            const row = Math.floor(i / cols);
-            const x = col * cellWidth;
-            const y = row * cellHeight;
+          if (loadedImgArray.length > 0) {
+            for (let i = 0; i < totalCells; i++) {
+              const col = i % cols;
+              const row = Math.floor(i / cols);
+              const x = col * cellWidth;
+              const y = row * cellHeight;
+              
+              const imgIndex = i % loadedImgArray.length;
+              const imgToDraw = loadedImgArray[imgIndex];
+              
+              ctx.globalAlpha = 1.0;
+              ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
+            }
             
-            const imgIndex = i % loadedImgArray.length;
-            const imgToDraw = loadedImgArray[imgIndex];
+            ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+            ctx.lineWidth = 10;
+            for (let i = 0; i < totalCells; i++) {
+              const col = i % cols;
+              const row = Math.floor(i / cols);
+              const x = col * cellWidth;
+              const y = row * cellHeight;
+              ctx.strokeRect(x, y, cellWidth, cellHeight);
+            }
             
-            ctx.globalAlpha = 1.0;
-            ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
+            applyPlanetFilters(ctx, size, name);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(2, 2);
+            
+            preloadedMosaicTextures.set(name, texture);
           }
           
-          // Draw visible borders even on error
-          ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
-          ctx.lineWidth = 10;
-          for (let i = 0; i < totalCells; i++) {
-            const col = i % cols;
-            const row = Math.floor(i / cols);
-            const x = col * cellWidth;
-            const y = row * cellHeight;
-            ctx.strokeRect(x, y, cellWidth, cellHeight);
-          }
-          
-          applyPlanetFilters(ctx, size, name);
-          
-          const texture = new THREE.CanvasTexture(canvas);
-          texture.needsUpdate = true;
-          texture.wrapS = THREE.RepeatWrapping;
-          texture.wrapT = THREE.RepeatWrapping;
-          // Ripeti la texture 2 volte per coprire meglio la sfera
-          texture.repeat.set(2, 2);
-          
-          preloadedMosaicTextures.set(name, texture);
           loadedCount++;
           
           if (loadedCount === totalPlanets) {
@@ -1542,13 +1572,13 @@ function loadTimeline(planetName) {
     }
   }
 
-  // Collect all valid images first
+  // Collect all valid images (only local paths, skip external URLs)
   const allImages = [];
   planetEntries.slice(1).forEach((entry, index) => {
     const imageColumns = ['Unnamed: 7', 'Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10', 'Unnamed: 11'];
     imageColumns.forEach(column => {
       const imageUrl = entry[column];
-      if (imageUrl && imageUrl !== null && imageUrl !== 'null' && imageUrl.startsWith('http')) {
+      if (imageUrl && imageUrl !== null && imageUrl !== 'null' && !imageUrl.startsWith('http')) {
         allImages.push({ entry, imageUrl });
       }
     });
@@ -1576,6 +1606,7 @@ function loadTimeline(planetName) {
     img.src = imageUrl;
     img.alt = entry['Unnamed: 1'] || 'Historical image';
     img.onerror = function() {
+      // Hide timeline item if image fails to load
       this.parentElement.style.display = 'none';
     };
     
@@ -1702,7 +1733,7 @@ window.addEventListener('resize', function () {
     renderer.setSize(window.innerWidth, window.innerHeight / 2);
     composer.setSize(window.innerWidth, window.innerHeight / 2);
     camera.aspect = window.innerWidth / (window.innerHeight / 2);
-  } else {
+  } else { 
     renderer.domElement.style.height = '100%';
     renderer.setSize(window.innerWidth, window.innerHeight);
     composer.setSize(window.innerWidth, window.innerHeight);
