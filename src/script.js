@@ -467,7 +467,7 @@ function createPlanet(planetName, size, position, tilt, texture, bump, ring, atm
     const atmosphereMaterial = new THREE.MeshPhongMaterial({
       map: loadTexture.load(atmosphere),
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.2,
       depthTest: true,
       depthWrite: false
     })
@@ -1912,7 +1912,7 @@ function showCarouselImage(index) {
   // Update counter as data attribute
   const carouselContent = document.querySelector('.carousel-content');
   if (carouselContent) {
-    carouselContent.setAttribute('data-counter', `${index + 1} / ${carouselImages.length}`);
+    carouselContent.setAttribute('data-counter', `${index + 1}/${carouselImages.length}`);
   }
 }
 
@@ -1931,9 +1931,28 @@ document.addEventListener('mousemove', (e) => {
   const carousel = document.getElementById('imageCarousel');
   if (carousel && carousel.classList.contains('active')) {
     const carouselContent = document.querySelector('.carousel-content');
+    const closeButton = document.querySelector('.carousel-close');
+    
     if (carouselContent) {
       carouselContent.style.setProperty('--mouse-x', mouseX + 'px');
       carouselContent.style.setProperty('--mouse-y', mouseY + 'px');
+      
+      // Hide counter when hovering over close button
+      if (closeButton) {
+        const rect = closeButton.getBoundingClientRect();
+        const isHoveringClose = (
+          mouseX >= rect.left &&
+          mouseX <= rect.right &&
+          mouseY >= rect.top &&
+          mouseY <= rect.bottom
+        );
+        
+        if (isHoveringClose) {
+          carouselContent.style.setProperty('--counter-opacity', '0');
+        } else {
+          carouselContent.style.setProperty('--counter-opacity', '1');
+        }
+      }
     }
   }
 });
@@ -1955,6 +1974,7 @@ updateControlsLegend();
 // Add keyboard navigation
 document.addEventListener('keydown', (e) => {
   const carousel = document.getElementById('imageCarousel');
+  
   if (carousel.classList.contains('active')) {
     if (e.key === 'ArrowLeft') {
       navigateCarousel(-1);
@@ -1963,5 +1983,7 @@ document.addEventListener('keydown', (e) => {
     } else if (e.key === 'Escape') {
       closeCarousel();
     }
+  } else if (e.key === 'Escape' && isInfoShown) {
+    closeInfo();
   }
 });

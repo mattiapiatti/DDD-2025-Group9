@@ -250,10 +250,6 @@ p {
     padding: 0;
     z-index: 1000;
     pointer-events: all;
-    transition: width 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55), 
-                height 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55),
-                opacity 0.4s ease,
-                transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
     position: relative;
     cursor: default;
     opacity: 0;
@@ -472,6 +468,7 @@ p {
     cursor: none;
     --mouse-x: 0px;
     --mouse-y: 0px;
+    --counter-opacity: 1;
 }
 
 .carousel-content::after {
@@ -490,6 +487,8 @@ p {
     transform: translate(-50%, -50%);
     white-space: nowrap;
     mix-blend-mode: difference;
+    opacity: var(--counter-opacity);
+    transition: opacity 0.2s ease;
 }
 
 /* Main Title */
