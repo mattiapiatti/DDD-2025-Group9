@@ -169,6 +169,11 @@ p {
     gap: 5px;
 }
 
+.timeline img {
+        cursor: pointer;
+
+}
+
 .timeline::-webkit-scrollbar {
     height: 8px;
 }
@@ -464,7 +469,7 @@ p {
     left: var(--mouse-x);
     top: var(--mouse-y);
     pointer-events: none;
-    color: white;
+    color: yellow;
     font-size: 16px;
     font-weight: bold;
     font-family: Arial, sans-serif;
