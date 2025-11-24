@@ -64,6 +64,62 @@ body {
     font-family: 'NB Architekt', Arial, Helvetica, sans-serif;
 }
 
+.countdown-timer {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: yellow;
+    font-size: 120px;
+    font-weight: bold;
+    font-family: 'NB Architekt', Arial, Helvetica, sans-serif;
+    text-shadow: 0 0 20px rgba(255, 255, 0, 0.8);
+    animation: pulse 1s ease-in-out infinite;
+    z-index: 10001;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+.start-button {
+    position: absolute;
+    top: 55%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: transparent;
+    color: yellow;
+    border: 2px solid yellow;
+    padding: 15px 40px;
+    font-size: 24px;
+    font-weight: bold;
+    font-family: 'NB Architekt', Arial, Helvetica, sans-serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    z-index: 10001;
+}
+
+.start-button:hover {
+    background: yellow;
+    color: black;
+    box-shadow: 0 0 20px rgba(255, 255, 0, 0.6);
+    transform: translateX(-50%) scale(1.05);
+}
+
+.start-button:active {
+    transform: translateX(-50%) scale(0.95);
+}
+
 .planet-info {
     display: none;
     position: absolute;

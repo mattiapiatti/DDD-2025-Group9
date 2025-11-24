@@ -34,6 +34,8 @@ import uranusTexture from '/images/uranus.jpg';
 import uraRingTexture from '/images/uranus_ring.png';
 import neptuneTexture from '/images/neptune.jpg';
 import sistemaSolareData from './json/sistema_solare_1.json';
+import startSpaceSound from './audio/start_space_sound.mp3';
+import spaceLoopSound from './audio/space_sound_loop.mp3';
 
 // ******  SETUP  ******
 console.log("Create the scene");
@@ -1523,19 +1525,159 @@ function applyPreloadedTextures() {
   // Force a render update to ensure textures are applied
   composer.render();
   
-  // Show the scene now that textures are ready
+  // Show start button when loading is complete
   setTimeout(() => {
+    const loadingText = document.getElementById('loading-text');
+    const startButton = document.getElementById('start-button');
+    const loader = document.querySelector('.loader');
+    
+    if (loadingText) loadingText.textContent = 'Ready to explore!';
+    if (loader) loader.style.display = 'none';
+    if (startButton) startButton.style.display = 'block';
+    
     renderer.domElement.style.transition = 'opacity 0.5s ease';
     renderer.domElement.style.opacity = '1';
-    
-    const loadingScreen = document.getElementById('loading-screen');
-    if (loadingScreen) {
-      loadingScreen.classList.add('fade-out');
-      setTimeout(() => {
-        loadingScreen.style.display = 'none';
-      }, 500);
-    }
   }, 300);
+}
+
+// ******  COUNTDOWN TIMER WITH AUDIO  ******
+const countdownAudio = new Audio(startSpaceSound);
+countdownAudio.preload = 'auto';
+
+const loopAudio = new Audio(spaceLoopSound);
+loopAudio.preload = 'auto';
+loopAudio.loop = true;
+loopAudio.volume = 0.7; // Abbassa leggermente il volume per il loop
+
+let countdownStarted = false;
+
+function startCountdown() {
+  if (countdownStarted) return;
+  countdownStarted = true;
+  
+  const countdownElement = document.getElementById('countdown-timer');
+  if (!countdownElement) {
+    console.error('Countdown element not found');
+    return;
+  }
+  
+  countdownElement.style.display = 'block';
+  countdownElement.textContent = '3';
+  
+  console.log('Starting countdown with audio');
+  
+  // Reset audio to beginning
+  countdownAudio.currentTime = 0;
+  
+  // Play audio
+  const playPromise = countdownAudio.play();
+  
+  if (playPromise !== undefined) {
+    playPromise
+      .then(() => {
+        console.log('Audio playing successfully');
+      })
+      .catch(err => {
+        console.error('Audio autoplay prevented:', err);
+        // Fallback: manual countdown without audio
+        manualCountdown(countdownElement);
+      });
+  }
+  
+  // Sync countdown with audio timeupdate
+  let lastNumber = 3;
+  countdownAudio.addEventListener('timeupdate', function updateCountdown() {
+    const currentTime = countdownAudio.currentTime;
+    
+    console.log('Audio time:', currentTime);
+    
+    if (currentTime >= 0 && currentTime < 0.9) {
+      if (lastNumber !== 3) {
+        countdownElement.textContent = '3';
+        lastNumber = 3;
+      }
+    } else if (currentTime >= 0.9 && currentTime < 1.9) {
+      if (lastNumber !== 2) {
+        countdownElement.textContent = '2';
+        lastNumber = 2;
+      }
+    } else if (currentTime >= 1.9 && currentTime < 2.9) {
+      if (lastNumber !== 1) {
+        countdownElement.textContent = '1';
+        lastNumber = 1;
+      }
+    } else if (currentTime >= 2.9) {
+      countdownElement.style.display = 'none';
+      countdownAudio.removeEventListener('timeupdate', updateCountdown);
+    }
+  });
+  
+  // Safety timeout to hide countdown after 4 seconds
+  setTimeout(() => {
+    if (countdownElement.style.display !== 'none') {
+      countdownElement.style.display = 'none';
+    }
+  }, 4000);
+  
+  // Start loop audio when countdown audio ends
+  countdownAudio.addEventListener('ended', function() {
+    console.log('Countdown audio ended, starting loop audio');
+    loopAudio.play().catch(err => {
+      console.error('Error playing loop audio:', err);
+    });
+  });
+}
+
+// Fallback manual countdown if audio fails
+function manualCountdown(element) {
+  console.log('Using manual countdown fallback');
+  element.textContent = '3';
+  
+  setTimeout(() => {
+    element.textContent = '2';
+  }, 1000);
+  
+  setTimeout(() => {
+    element.textContent = '1';
+  }, 2000);
+  
+  setTimeout(() => {
+    element.style.display = 'none';
+  }, 3000);
+}
+
+// Start button click handler
+function initStartButton() {
+  const startButton = document.getElementById('start-button');
+  if (startButton) {
+    startButton.addEventListener('click', function() {
+      console.log('Start button clicked');
+      startButton.style.display = 'none';
+      const loadingText = document.getElementById('loading-text');
+      if (loadingText) loadingText.style.display = 'none';
+      
+      // Start countdown timer with audio
+      startCountdown();
+      
+      // Hide loading screen after countdown finishes (with delay before showing canvas)
+      setTimeout(() => {
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+          loadingScreen.classList.add('fade-out');
+          setTimeout(() => {
+            loadingScreen.style.display = 'none';
+          }, 500);
+        }
+      }, 4500);
+    });
+  }
+}
+
+// Initialize start button when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initStartButton);
+} else {
+  initStartButton();
 }
 
 // Start preloading immediately after planets are created
