@@ -45,7 +45,10 @@ var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHei
 camera.position.set(-175, 115, 5);
 
 console.log("Create the renderer");
-const renderer = new THREE.WebGL1Renderer();
+const renderer = new THREE.WebGLRenderer({
+  powerPreference: 'high-performance',
+  antialias: true
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 renderer.domElement.style.width = '100%';
@@ -510,13 +513,13 @@ function getPlanetImagesFromJSON(planetName) {
     }
   }
 
-  // Collect all valid images
+  // Collect all valid images (only local paths, skip external URLs)
   const allImages = [];
   planetEntries.slice(1).forEach((entry) => {
     const imageColumns = ['Unnamed: 7', 'Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10', 'Unnamed: 11'];
     imageColumns.forEach(column => {
       const imageUrl = entry[column];
-      if (imageUrl && imageUrl !== null && imageUrl !== 'null' && imageUrl.startsWith('http')) {
+      if (imageUrl && imageUrl !== null && imageUrl !== 'null' && !imageUrl.startsWith('http')) {
         allImages.push(imageUrl);
       }
     });
@@ -648,14 +651,18 @@ function createMosaicTexture(planetName, planet) {
 
   images.forEach((url, index) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Empty string allows local images to be read by canvas
+    if (!url.startsWith('http')) {
+      img.crossOrigin = '';
+    }
     
     img.onload = () => {
       loadedImgArray.push(img);
       loadedImages++;
       
-      // When all images are loaded, draw them to fill the entire grid
       if (loadedImages === totalImages) {
+        // Only draw if we have successfully loaded images
+        if (loadedImgArray.length > 0) {
         // Fill all cells by repeating images cyclically
         for (let i = 0; i < totalCells; i++) {
           const col = i % cols;
@@ -671,59 +678,76 @@ function createMosaicTexture(planetName, planet) {
           ctx.globalAlpha = 1.0;
           ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
         }
-        // Draw visible borders around each cell to make mosaic more visible
-        ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
-        ctx.lineWidth = 10;
-        for (let i = 0; i < totalCells; i++) {
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-          const x = col * cellWidth;
-          const y = row * cellHeight;
-          ctx.strokeRect(x, y, cellWidth, cellHeight);
-        }
-        
-        // Apply planet-like filters with planet-specific color
-        applyPlanetFilters(ctx, size, planetName);
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.needsUpdate = true;
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-        // Ripeti la texture 2 volte per coprire meglio la sfera
-        texture.repeat.set(2, 2);
-        
-        // Handle Earth's shader material specially
-        if (planetName === 'Earth') {
-          // Replace Earth's shader material with a simple material showing the mosaic
-          const mosaicMaterial = new THREE.MeshPhongMaterial({
-            map: texture,
-            shininess: 5,
-            specular: 0x222222,
-            transparent: false,
-            opacity: 1.0
-          });
-          mosaicMaterial.userData = planet.material.userData;
-          planet.material = mosaicMaterial;
-        } else if (planet.material.userData.originalTexture instanceof THREE.Material) {
-          // For other shader materials
-          console.log(`Cannot apply mosaic to shader material for ${planetName}`);
-        } else {
-          planet.material.map = texture;
-          planet.material.shininess = 5;
-          planet.material.specular = new THREE.Color(0x222222);
-          planet.material.transparent = false;
-          planet.material.opacity = 1.0;
-          planet.material.needsUpdate = true;
+      }
+      
+      // Draw visible borders around each cell to make mosaic more visible
+      ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+      ctx.lineWidth = 10;
+      for (let i = 0; i < totalCells; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const x = col * cellWidth;
+        const y = row * cellHeight;
+        ctx.strokeRect(x, y, cellWidth, cellHeight);
+      }
+      
+      // Apply planet-like filters with planet-specific color
+      applyPlanetFilters(ctx, size, planetName);
+      
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      // Ripeti la texture 2 volte per coprire meglio la sfera
+      texture.repeat.set(2, 2);
+      
+      // Handle Earth's shader material specially
+      if (planetName === 'Earth') {
+        // Replace Earth's shader material with a simple material showing the mosaic
+        const mosaicMaterial = new THREE.MeshPhongMaterial({
+          map: texture,
+          shininess: 5,
+          specular: 0x222222,
+          transparent: false,
+          opacity: 1.0
+        });
+        mosaicMaterial.userData = planet.material.userData;
+        planet.material = mosaicMaterial;
+      } else if (planet.material.userData.originalTexture instanceof THREE.Material) {
+        // For other shader materials
+        console.log(`Cannot apply mosaic to shader material for ${planetName}`);
+      } else {
+        planet.material.map = texture;
+        planet.material.shininess = 5;
+        planet.material.specular = new THREE.Color(0x222222);
+        planet.material.transparent = false;
+        planet.material.opacity = 1.0;
+        planet.material.needsUpdate = true;
         }
       }
     };
     
     img.onerror = () => {
-      console.warn(`Failed to load image: ${url}`);
+      // Silently skip failed images - they will be excluded from mosaic
       loadedImages++;
       
       if (loadedImages === totalImages) {
-        // Draw visible borders even on error
+        // Draw with available images
+        if (loadedImgArray.length > 0) {
+          for (let i = 0; i < totalCells; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = col * cellWidth;
+            const y = row * cellHeight;
+            
+            const imgIndex = i % loadedImgArray.length;
+            const imgToDraw = loadedImgArray[imgIndex];
+            
+            ctx.globalAlpha = 1.0;
+            ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
+          }
+        }
+        
         ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
         ctx.lineWidth = 10;
         for (let i = 0; i < totalCells; i++) {
@@ -734,14 +758,12 @@ function createMosaicTexture(planetName, planet) {
           ctx.strokeRect(x, y, cellWidth, cellHeight);
         }
         
-        // Apply filters even if some images failed
         applyPlanetFilters(ctx, size, planetName);
         
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
-        // Ripeti la texture 2 volte per coprire meglio la sfera
         texture.repeat.set(2, 2);
         
         if (planetName === 'Earth') {
@@ -1310,13 +1332,18 @@ function preloadMosaicTextures() {
 
     images.forEach((url, index) => {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      // Empty string allows local images to be read by canvas
+      if (!url.startsWith('http')) {
+        img.crossOrigin = '';
+      }
       
       img.onload = () => {
         loadedImgArray.push(img);
         loadedImages++;
         
         if (loadedImages === totalImages) {
+        // Only draw if we have successfully loaded images
+        if (loadedImgArray.length > 0) {
           // Fill all cells by repeating images cyclically
           for (let i = 0; i < totalCells; i++) {
             const col = i % cols;
@@ -1353,6 +1380,8 @@ function preloadMosaicTextures() {
           texture.repeat.set(2, 2);
           
           preloadedMosaicTextures.set(name, texture);
+          }
+          
           loadedCount++;
           
           if (loadedCount === totalPlanets) {
@@ -1362,43 +1391,44 @@ function preloadMosaicTextures() {
       };
       
       img.onerror = () => {
+        // Silently skip failed images - they will be excluded from mosaic
         loadedImages++;
         if (loadedImages === totalImages) {
-          // Fill remaining cells with loaded images
-          for (let i = 0; i < totalCells && loadedImgArray.length > 0; i++) {
-            const col = i % cols;
-            const row = Math.floor(i / cols);
-            const x = col * cellWidth;
-            const y = row * cellHeight;
+          if (loadedImgArray.length > 0) {
+            for (let i = 0; i < totalCells; i++) {
+              const col = i % cols;
+              const row = Math.floor(i / cols);
+              const x = col * cellWidth;
+              const y = row * cellHeight;
+              
+              const imgIndex = i % loadedImgArray.length;
+              const imgToDraw = loadedImgArray[imgIndex];
+              
+              ctx.globalAlpha = 1.0;
+              ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
+            }
             
-            const imgIndex = i % loadedImgArray.length;
-            const imgToDraw = loadedImgArray[imgIndex];
+            ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
+            ctx.lineWidth = 10;
+            for (let i = 0; i < totalCells; i++) {
+              const col = i % cols;
+              const row = Math.floor(i / cols);
+              const x = col * cellWidth;
+              const y = row * cellHeight;
+              ctx.strokeRect(x, y, cellWidth, cellHeight);
+            }
             
-            ctx.globalAlpha = 1.0;
-            ctx.drawImage(imgToDraw, x, y, cellWidth, cellHeight);
+            applyPlanetFilters(ctx, size, name);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(2, 2);
+            
+            preloadedMosaicTextures.set(name, texture);
           }
           
-          // Draw visible borders even on error
-          ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)';
-          ctx.lineWidth = 10;
-          for (let i = 0; i < totalCells; i++) {
-            const col = i % cols;
-            const row = Math.floor(i / cols);
-            const x = col * cellWidth;
-            const y = row * cellHeight;
-            ctx.strokeRect(x, y, cellWidth, cellHeight);
-          }
-          
-          applyPlanetFilters(ctx, size, name);
-          
-          const texture = new THREE.CanvasTexture(canvas);
-          texture.needsUpdate = true;
-          texture.wrapS = THREE.RepeatWrapping;
-          texture.wrapT = THREE.RepeatWrapping;
-          // Ripeti la texture 2 volte per coprire meglio la sfera
-          texture.repeat.set(2, 2);
-          
-          preloadedMosaicTextures.set(name, texture);
           loadedCount++;
           
           if (loadedCount === totalPlanets) {
@@ -1542,13 +1572,13 @@ function loadTimeline(planetName) {
     }
   }
 
-  // Collect all valid images first
+  // Collect all valid images (only local paths, skip external URLs)
   const allImages = [];
   planetEntries.slice(1).forEach((entry, index) => {
     const imageColumns = ['Unnamed: 7', 'Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10', 'Unnamed: 11'];
     imageColumns.forEach(column => {
       const imageUrl = entry[column];
-      if (imageUrl && imageUrl !== null && imageUrl !== 'null' && imageUrl.startsWith('http')) {
+      if (imageUrl && imageUrl !== null && imageUrl !== 'null' && !imageUrl.startsWith('http')) {
         allImages.push({ entry, imageUrl });
       }
     });
@@ -1576,6 +1606,7 @@ function loadTimeline(planetName) {
     img.src = imageUrl;
     img.alt = entry['Unnamed: 1'] || 'Historical image';
     img.onerror = function() {
+      // Hide timeline item if image fails to load
       this.parentElement.style.display = 'none';
     };
     
@@ -1587,6 +1618,11 @@ function loadTimeline(planetName) {
       showImagePreview(entry, imageUrl, timelineItem);
     });
     timelineItem.addEventListener('mouseleave', hideImagePreview);
+    
+    // Add click event to open carousel
+    timelineItem.addEventListener('click', () => {
+      openCarousel(allImages, index);
+    });
     
     timeline.appendChild(timelineItem);
   });
@@ -1666,6 +1702,49 @@ function showImagePreview(entry, imageUrl, itemElement) {
   preview.addEventListener('mouseleave', () => {
     hideImagePreview();
   });
+  
+  // Add click event to open carousel
+  preview.addEventListener('click', () => {
+    // Find the index of this image in the timeline
+    const timeline = document.getElementById('timeline');
+    const allTimelineImages = Array.from(timeline.querySelectorAll('.timeline-item'));
+    const index = allTimelineImages.indexOf(itemElement);
+    
+    // Get all images from the current planet
+    const planetName = document.getElementById('planetName').innerText;
+    const planetEntries = [];
+    let currentPlanet = null;
+    
+    for (let i = 0; i < sistemaSolareData.length; i++) {
+      const dataEntry = sistemaSolareData[i];
+      const firstColumn = dataEntry['In what ways the perception of the solar system evolved over the course of human history, from ancient cosmologies to modern science?  Question more specific  (timeline)'];
+      
+      if (firstColumn && firstColumn !== 'null') {
+        currentPlanet = firstColumn;
+      }
+      
+      if (currentPlanet && currentPlanet.toLowerCase() === planetName.toLowerCase()) {
+        planetEntries.push(dataEntry);
+      }
+      
+      if (currentPlanet && currentPlanet.toLowerCase() !== planetName.toLowerCase() && planetEntries.length > 0) {
+        break;
+      }
+    }
+    
+    const allPlanetImages = [];
+    planetEntries.slice(1).forEach((dataEntry) => {
+      const imageColumns = ['Unnamed: 7', 'Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10', 'Unnamed: 11'];
+      imageColumns.forEach(column => {
+        const imgUrl = dataEntry[column];
+        if (imgUrl && imgUrl !== null && imgUrl !== 'null' && !imgUrl.startsWith('http')) {
+          allPlanetImages.push({ entry: dataEntry, imageUrl: imgUrl });
+        }
+      });
+    });
+    
+    openCarousel(allPlanetImages, index >= 0 ? index : 0);
+  });
 }
 
 function hideImagePreview() {
@@ -1702,11 +1781,153 @@ window.addEventListener('resize', function () {
     renderer.setSize(window.innerWidth, window.innerHeight / 2);
     composer.setSize(window.innerWidth, window.innerHeight / 2);
     camera.aspect = window.innerWidth / (window.innerHeight / 2);
-  } else {
+  } else { 
     renderer.domElement.style.height = '100%';
     renderer.setSize(window.innerWidth, window.innerHeight);
     composer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
   }
   camera.updateProjectionMatrix();
+});
+
+// ******  IMAGE CAROUSEL FUNCTIONALITY  ******
+let carouselImages = [];
+let currentCarouselIndex = 0;
+
+function openCarousel(images, startIndex) {
+  carouselImages = images;
+  currentCarouselIndex = startIndex;
+  
+  const carousel = document.getElementById('imageCarousel');
+  carousel.classList.add('active');
+  
+  showCarouselImage(currentCarouselIndex);
+  
+  // Prevent body scroll when carousel is open
+  document.body.style.overflow = 'hidden';
+  
+  // Add click navigation
+  const carouselContent = document.querySelector('.carousel-content');
+  if (carouselContent && !carouselContent.hasAttribute('data-click-listener')) {
+    carouselContent.setAttribute('data-click-listener', 'true');
+    carouselContent.addEventListener('click', handleCarouselClick);
+  }
+}
+
+function handleCarouselClick(e) {
+  const carouselContent = e.currentTarget;
+  const rect = carouselContent.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const contentWidth = rect.width;
+  
+  // Left side (0 to 33.333%) - previous image
+  if (clickX < contentWidth * 0.33333) {
+    navigateCarousel(-1);
+  }
+  // Right side (33.333% to 100%) - next image
+  else if (clickX >= contentWidth * 0.33333) {
+    navigateCarousel(1);
+  }
+}
+
+function closeCarousel() {
+  const carousel = document.getElementById('imageCarousel');
+  carousel.classList.remove('active');
+  
+  // Restore body scroll
+  document.body.style.overflow = '';
+  
+  // Remove click listener
+  const carouselContent = document.querySelector('.carousel-content');
+  if (carouselContent) {
+    carouselContent.removeEventListener('click', handleCarouselClick);
+    carouselContent.removeAttribute('data-click-listener');
+  }
+}
+
+function navigateCarousel(direction) {
+  currentCarouselIndex += direction;
+  
+  // Loop around
+  if (currentCarouselIndex < 0) {
+    currentCarouselIndex = carouselImages.length - 1;
+  } else if (currentCarouselIndex >= carouselImages.length) {
+    currentCarouselIndex = 0;
+  }
+  
+  showCarouselImage(currentCarouselIndex);
+}
+
+function showCarouselImage(index) {
+  const { entry, imageUrl } = carouselImages[index];
+  
+  const img = document.getElementById('carouselImage');
+  img.src = imageUrl;
+  
+  const infoDiv = document.getElementById('carouselInfo');
+  let infoHTML = '<table>';
+  
+  if (entry['Unnamed: 1']) {
+    infoHTML += `<tr><td>Name:</td><td>${entry['Unnamed: 1']}</td></tr>`;
+  }
+  if (entry['Unnamed: 2']) {
+    infoHTML += `<tr><td>Perception:</td><td>${entry['Unnamed: 2']}</td></tr>`;
+  }
+  if (entry['Unnamed: 3']) {
+    infoHTML += `<tr><td>Date:</td><td>${entry['Unnamed: 3']}</td></tr>`;
+  }
+  if (entry['Unnamed: 4']) {
+    infoHTML += `<tr><td>Who:</td><td>${entry['Unnamed: 4']}</td></tr>`;
+  }
+  if (entry['Unnamed: 5']) {
+    infoHTML += `<tr><td>Technique:</td><td>${entry['Unnamed: 5']}</td></tr>`;
+  }
+  if (entry['Unnamed: 6']) {
+    infoHTML += `<tr><td>Key Notes:</td><td>${entry['Unnamed: 6']}</td></tr>`;
+  }
+  
+  infoHTML += '</table>';
+  infoDiv.innerHTML = infoHTML;
+  
+  // Update counter as data attribute
+  const carouselContent = document.querySelector('.carousel-content');
+  if (carouselContent) {
+    carouselContent.setAttribute('data-counter', `${index + 1} / ${carouselImages.length}`);
+  }
+}
+
+// Make functions global for onclick handlers
+window.closeCarousel = closeCarousel;
+window.navigateCarousel = navigateCarousel;
+
+// Track mouse position for custom cursor counter
+let mouseX = 0;
+let mouseY = 0;
+
+document.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  
+  const carousel = document.getElementById('imageCarousel');
+  if (carousel && carousel.classList.contains('active')) {
+    const carouselContent = document.querySelector('.carousel-content');
+    if (carouselContent) {
+      carouselContent.style.setProperty('--mouse-x', mouseX + 'px');
+      carouselContent.style.setProperty('--mouse-y', mouseY + 'px');
+    }
+  }
+});
+
+// Add keyboard navigation
+document.addEventListener('keydown', (e) => {
+  const carousel = document.getElementById('imageCarousel');
+  if (carousel.classList.contains('active')) {
+    if (e.key === 'ArrowLeft') {
+      navigateCarousel(-1);
+    } else if (e.key === 'ArrowRight') {
+      navigateCarousel(1);
+    } else if (e.key === 'Escape') {
+      closeCarousel();
+    }
+  }
 });
