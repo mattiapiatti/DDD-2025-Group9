@@ -51,18 +51,28 @@ You can view the interactive visualization [here](https://solarsystem.mattiapiat
 
 ```mermaid
 graph TD
-    A[User Opens the Application] --> B[Main Screen: Planet Selection]
-    B --> C[User Selects a Planet]
-    C --> D[Loading Planet Data]
-    D --> E[Displaying Image Timeline]
-    E --> F[User Interacts with Timeline<br/>Clicks on a Time Point]
-    F --> G[Opening Carousel View]
-    G --> H[Navigating Carousel<br/>Previous/Next]
-    H --> I[Viewing Image Details<br/>Description, Zoom, Link]
-    I --> J{Does User Want to Go Back?}
-    J -->|Yes| E
-    J -->|No| K[Close Carousel]
-    K --> L{Select Another Planet?}
-    L -->|Yes| B
-    L -->|No| M[Exit Application]
+    A[User Opens the Application] --> B[Loading Screen<br/>Loading Solar System...]
+    B --> C[Textures & Data Loading]
+    C --> C1[Loading Planet Textures<br/>from /images/ folder]
+    C --> C2[Loading Historical Data<br/>from sistema_solare_1.json]
+    C1 --> D[Ready to Explore!<br/>START Button Appears]
+    C2 --> D
+    D --> E[User Clicks START Button]
+    E --> F[Countdown Timer<br/>3-2-1 with Audio]
+    F --> G[Audio Loop Starts<br/>Background Music]
+    G --> H[Main Screen: Planet Selection<br/>Interactive 3D Solar System]
+    H --> I[User Selects a Planet<br/>Mouse Click on Planet]
+    I --> J[Planet Zoom Animation<br/>Camera Movement]
+    J --> K[Loading Planet Data<br/>Historical Timeline]
+    K --> L[Displaying Image Timeline<br/>Mosaic Textures Applied]
+    L --> M[User Interacts with Timeline<br/>Hover/Click on Images]
+    M --> N[Opening Carousel View<br/>Fullscreen Image Gallery]
+    N --> O[Navigating Carousel<br/>Previous/Next/Close]
+    O --> P[Viewing Image Details<br/>Description, Metadata, Zoom]
+    P --> Q{Does User Want to Go Back?}
+    Q -->|Yes| L
+    Q -->|No| R[Close Carousel]
+    R --> S{Select Another Planet?}
+    S -->|Yes| H
+    S -->|No| T[Exit Application]
 ```
